@@ -1,10 +1,12 @@
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from firebase_service import FirebaseService
+from ats_analysis import ATSAnalysisService
 import json
 from datetime import datetime
+import asyncio
 
 app = FastAPI(title="Fair-Hire Sentinel API")
 
@@ -117,6 +119,46 @@ def get_home_data():
         gender_stats={"Male": 28, "Female": 42, "Non-binary": 38}
     )
 
+@app.post("/api/bulk-upload-cvs")
+async def bulk_upload_cvs(cvs: List[dict]):
+    try:
+        results = []
+        for cv_data in cvs:
+            candidate_id = f"CV{datetime.now().strftime('%Y%m%d%H%M%S')}{len(results)}"
+            cv_data['candidateId'] = candidate_id
+            cv_data['uploadedAt'] = datetime.now()
+            cv_data['status'] = 'under_review'
+            
+            FirebaseService.add_cv(cv_data)
+            results.append(candidate_id)
+        
+        return {"message": f"Successfully uploaded {len(results)} CVs", "candidateIds": results}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/upload-cv-file")
+async def upload_cv_file(file: UploadFile = File(...)):
+    try:
+        # Save file to Firebase Storage
+        blob = bucket.blob(f"cvs/{file.filename}")
+        contents = await file.read()
+        blob.upload_from_string(contents, content_type=file.content_type)
+        
+        # Generate CV data from filename (simplified)
+        candidate_id = f"CV{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        cv_data = {
+            "candidateId": candidate_id,
+            "fileName": file.filename,
+            "fileUrl": blob.public_url,
+            "uploadedAt": datetime.now(),
+            "status": "pending_extraction"
+        }
+        
+        FirebaseService.add_cv(cv_data)
+        return {"message": "CV uploaded successfully", "candidateId": candidate_id}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/api/cvs")
 async def add_cv(
     name: str = Form(...),
@@ -183,6 +225,52 @@ def get_companies():
     try:
         companies = FirebaseService.get_companies()
         return {"companies": companies}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/job-postings")
+def get_job_postings():
+    try:
+        jobs_ref = FirebaseService.db.collection('job_postings').where('status', '==', 'active')
+        jobs = [job.to_dict() for job in jobs_ref.stream()]
+        return {"jobs": jobs}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/company-criteria/{company_name}")
+def get_company_criteria(company_name: str):
+    try:
+        from company_ats_criteria import CompanyATSCriteria
+        criteria = CompanyATSCriteria.get_company_criteria(company_name)
+        return {"company": company_name, "criteria": criteria}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/start-batch-analysis")
+async def start_batch_analysis(background_tasks: BackgroundTasks):
+    try:
+        # Run analysis in background
+        background_tasks.add_task(ATSAnalysisService.run_batch_analysis)
+        return {
+            "message": "Batch analysis started",
+            "status": "processing",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/analysis-status")
+def get_analysis_status():
+    try:
+        # Get latest metrics to show current status
+        metrics = FirebaseService.get_metrics()
+        alerts = FirebaseService.get_alerts()
+        return {
+            "status": "completed" if metrics else "idle",
+            "metrics": metrics,
+            "active_alerts": len(alerts) if alerts else 0,
+            "last_updated": metrics.get('lastUpdated') if metrics else None
+        }
     except Exception as e:
         return {"error": str(e)}
 

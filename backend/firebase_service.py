@@ -65,60 +65,13 @@ class FirebaseService:
             'lastUpdated': datetime.now()
         })
         
-        # Alerts
-        alerts = [
-            {
-                'type': 'warning',
-                'title': '🟡 Bias Detected in Keyword Filters',
-                'description': '3 keyword(s) show rejection rate disparities exceeding 25% threshold.',
-                'affected': 'Candidates over 45 years old',
-                'recommendation': 'Review "KPI" and "OKR" filters to include semantic equivalents',
-                'timestamp': datetime.now(),
-                'active': True
-            },
-            {
-                'type': 'info',
-                'title': '🦸 Talent Rescue Opportunity',
-                'description': '12 high-potential candidates auto-rejected but have >85% semantic match.',
-                'affected': 'Primarily experienced professionals (45+) and female candidates',
-                'timestamp': datetime.now(),
-                'active': True
-            }
-        ]
-        
-        for alert in alerts:
-            db.collection('alerts').add(alert)
-        
-        # Rescued candidates
-        candidates = [
-            {'id': 1023, 'ageGroup': '>45', 'gender': 'Female', 'keywords': 'CRM Strategy', 'score': 92, 'status': 'rescued'},
-            {'id': 1847, 'ageGroup': '>45', 'gender': 'Male', 'keywords': 'KPI', 'score': 89, 'status': 'rescued'},
-            {'id': 2156, 'ageGroup': '30-45', 'gender': 'Female', 'keywords': 'Client Engagement', 'score': 87, 'status': 'rescued'}
-        ]
-        
-        for candidate in candidates:
-            candidate['rescuedAt'] = datetime.now()
-            db.collection('rescued_candidates').add(candidate)
-        
-        # Analytics
-        db.collection('analytics').document('demographics').set({
-            'ageStats': {'Under 30': 22, '30-45': 30, 'Over 45': 52},
-            'genderStats': {'Male': 28, 'Female': 42, 'Non-binary': 38},
-            'lastUpdated': datetime.now()
-        })
-        
-        # Indian Companies
+        # Companies
         companies = [
             {"name": "Tata Consultancy Services", "industry": "IT Services", "location": "Mumbai"},
             {"name": "Infosys", "industry": "IT Services", "location": "Bangalore"},
             {"name": "Wipro", "industry": "IT Services", "location": "Bangalore"},
-            {"name": "HCL Technologies", "industry": "IT Services", "location": "Noida"},
-            {"name": "Tech Mahindra", "industry": "IT Services", "location": "Pune"},
-            {"name": "Reliance Industries", "industry": "Conglomerate", "location": "Mumbai"},
             {"name": "HDFC Bank", "industry": "Banking", "location": "Mumbai"},
-            {"name": "Bharti Airtel", "industry": "Telecommunications", "location": "New Delhi"},
-            {"name": "Mahindra Group", "industry": "Automotive", "location": "Mumbai"},
-            {"name": "Bajaj Finserv", "industry": "Financial Services", "location": "Pune"}
+            {"name": "Reliance Industries", "industry": "Conglomerate", "location": "Mumbai"}
         ]
         
         for company in companies:
@@ -131,13 +84,8 @@ class FirebaseService:
             {"name": "Priya Sharma", "email": "priya.sharma@tcs.com", "company": "Tata Consultancy Services", "experience": 8},
             {"name": "Rajesh Kumar", "email": "rajesh.kumar@infosys.com", "company": "Infosys", "experience": 12},
             {"name": "Anita Patel", "email": "anita.patel@wipro.com", "company": "Wipro", "experience": 6},
-            {"name": "Vikram Singh", "email": "vikram.singh@hcl.com", "company": "HCL Technologies", "experience": 10},
-            {"name": "Meera Reddy", "email": "meera.reddy@techmahindra.com", "company": "Tech Mahindra", "experience": 7},
-            {"name": "Arjun Gupta", "email": "arjun.gupta@ril.com", "company": "Reliance Industries", "experience": 15},
             {"name": "Kavya Nair", "email": "kavya.nair@hdfcbank.com", "company": "HDFC Bank", "experience": 9},
-            {"name": "Rohit Agarwal", "email": "rohit.agarwal@airtel.com", "company": "Bharti Airtel", "experience": 11},
-            {"name": "Deepika Joshi", "email": "deepika.joshi@mahindra.com", "company": "Mahindra Group", "experience": 5},
-            {"name": "Sanjay Verma", "email": "sanjay.verma@bajajfinserv.in", "company": "Bajaj Finserv", "experience": 13}
+            {"name": "Arjun Gupta", "email": "arjun.gupta@ril.com", "company": "Reliance Industries", "experience": 15}
         ]
         
         for manager in managers:
@@ -146,6 +94,25 @@ class FirebaseService:
             manager['department'] = 'Human Resources'
             db.collection('recruiting_managers').add(manager)
         
+        # Job Postings
+        job_postings = [
+            {
+                "jobId": "TCS001", "title": "Senior Java Developer", "company": "Tata Consultancy Services",
+                "location": "Mumbai", "required_skills": ["Java", "Spring Boot", "Microservices"],
+                "experience_required": "3-8 years", "salary_range": "12-20 LPA",
+                "posted_by": "priya.sharma@tcs.com", "posted_date": datetime.now(), "status": "active"
+            },
+            {
+                "jobId": "INF001", "title": "Data Scientist", "company": "Infosys",
+                "location": "Bangalore", "required_skills": ["Python", "Machine Learning", "SQL"],
+                "experience_required": "2-6 years", "salary_range": "10-18 LPA",
+                "posted_by": "rajesh.kumar@infosys.com", "posted_date": datetime.now(), "status": "active"
+            }
+        ]
+        
+        for job in job_postings:
+            db.collection('job_postings').add(job)
+        
         # Sample CVs
         cvs = [
             {
@@ -153,35 +120,14 @@ class FirebaseService:
                 "phone": "+91-9876543210", "age": 28, "gender": "Male", "experience": 5,
                 "skills": ["Java", "Spring Boot", "MySQL", "AWS"], "education": "B.Tech Computer Science",
                 "location": "Bangalore", "currentRole": "Senior Software Engineer", "expectedSalary": "15 LPA",
-                "status": "under_review"
+                "status": "under_review", "assigned_to": "priya.sharma@tcs.com", "job_applied": "TCS001"
             },
             {
                 "candidateId": "CV002", "name": "Sneha Patel", "email": "sneha.patel@email.com",
                 "phone": "+91-9876543211", "age": 32, "gender": "Female", "experience": 8,
                 "skills": ["Python", "Django", "PostgreSQL", "Docker"], "education": "M.Tech Software Engineering",
                 "location": "Pune", "currentRole": "Tech Lead", "expectedSalary": "22 LPA",
-                "status": "shortlisted"
-            },
-            {
-                "candidateId": "CV003", "name": "Rajesh Kumar", "email": "rajesh.kumar@email.com",
-                "phone": "+91-9876543212", "age": 45, "gender": "Male", "experience": 18,
-                "skills": ["Project Management", "Agile", "Scrum", "Leadership"], "education": "MBA + B.E Electronics",
-                "location": "Mumbai", "currentRole": "Project Manager", "expectedSalary": "35 LPA",
-                "status": "rejected"
-            },
-            {
-                "candidateId": "CV004", "name": "Priya Singh", "email": "priya.singh@email.com",
-                "phone": "+91-9876543213", "age": 26, "gender": "Female", "experience": 3,
-                "skills": ["React", "Node.js", "MongoDB", "JavaScript"], "education": "B.Tech Information Technology",
-                "location": "Delhi", "currentRole": "Frontend Developer", "expectedSalary": "12 LPA",
-                "status": "rescued"
-            },
-            {
-                "candidateId": "CV005", "name": "Arjun Reddy", "email": "arjun.reddy@email.com",
-                "phone": "+91-9876543214", "age": 48, "gender": "Male", "experience": 22,
-                "skills": ["Data Science", "Machine Learning", "Python", "R"], "education": "PhD Computer Science",
-                "location": "Hyderabad", "currentRole": "Senior Data Scientist", "expectedSalary": "40 LPA",
-                "status": "rescued"
+                "status": "shortlisted", "assigned_to": "rajesh.kumar@infosys.com", "job_applied": "INF001"
             }
         ]
         

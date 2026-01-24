@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { FileText, AlertTriangle, CheckCircle, XCircle, Clock, Activity, Download, Eye } from 'lucide-react';
+import BatchAnalysisPanel from '../../components/BatchAnalysisPanel';
+import Navbar from '../../components/Navbar';
 
 const Dashboard = () => {
   const [selectedResume, setSelectedResume] = useState(null);
@@ -21,14 +23,14 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-gray-100 px-6 py-6 space-y-6">
+    <div className="min-h-screen bg-black text-gray-100">
+      <Navbar />
+      <div className="px-6 py-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-white">📊 Monitoring Dashboard</h1>
         <p className="text-gray-400 mt-1">Real-time monitoring of ATS screening processes</p>
       </div>
-
-
 
       {/* Live Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -106,9 +108,9 @@ const Dashboard = () => {
             ))}
           </div>
 
-          <button className="w-full mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 rounded-lg text-sm font-medium">
-            Start Batch Analysis
-          </button>
+          <div className="mt-4">
+            <BatchAnalysisPanel />
+          </div>
         </div>
 
         {/* ATS Screening & Analysis */}
@@ -216,8 +218,7 @@ const Dashboard = () => {
           <ActivityItem time="9:30 AM" event="System Update" detail="Semantic matching algorithm updated" type="info" />
         </div>
       </div>
-
-
+      </div>
     </div>
   );
 };

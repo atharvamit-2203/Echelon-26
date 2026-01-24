@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import CVUploadForm from '../../components/CVUploadForm';
+import CVFileUpload from '../../components/CVFileUpload';
 
 interface CV {
   candidateId: string;
@@ -70,6 +71,9 @@ export default function CVManagement() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">CV Management</h1>
+      
+      {/* File Upload */}
+      <CVFileUpload onSuccess={fetchData} />
       
       {/* Add CV Form */}
       <CVUploadForm onSuccess={fetchData} />
