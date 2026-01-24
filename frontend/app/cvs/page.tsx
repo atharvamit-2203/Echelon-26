@@ -33,6 +33,8 @@ export default function CVManagement() {
   const [cvs, setCvs] = useState<CV[]>([]);
   const [managers, setManagers] = useState<RecruitingManager[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -57,6 +59,37 @@ export default function CVManagement() {
     }
   };
 
+  const startAnalysis = async () => {
+    setAnalyzing(true);
+    setAnalysisStatus('Starting analysis...');
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/start-batch-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setAnalysisStatus('Analysis running... Check Analytics page for results');
+        // Poll for completion
+        setTimeout(() => {
+          setAnalyzing(false);
+          setAnalysisStatus('Analysis completed! View results in Analytics page');
+          // Refresh data
+          fetchData();
+        }, 5000);
+      } else {
+        throw new Error('Analysis failed');
+      }
+    } catch (error) {
+      console.error('Error starting analysis:', error);
+      setAnalysisStatus('Error starting analysis');
+      setAnalyzing(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'shortlisted': return 'bg-green-100 text-green-800';
@@ -70,7 +103,37 @@ export default function CVManagement() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">CV Management</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">CV Management</h1>
+        <button
+          onClick={startAnalysis}
+          disabled={analyzing || cvs.length === 0}
+          className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+        >
+          {analyzing ? (
+            <>
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Start ATS Analysis
+            </>
+          )}
+        </button>
+      </div>
+      
+      {analysisStatus && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-blue-800 font-medium">{analysisStatus}</p>
+        </div>
+      )}
       
       {/* File Upload */}
       <CVFileUpload onSuccess={fetchData} />

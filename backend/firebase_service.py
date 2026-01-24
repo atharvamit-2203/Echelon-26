@@ -3,6 +3,13 @@ from firebase_admin import credentials, firestore, storage
 from datetime import datetime
 import json
 
+try:
+    from cv_file_processor import CVFileProcessor
+    CV_PROCESSOR_AVAILABLE = True
+except ImportError:
+    CV_PROCESSOR_AVAILABLE = False
+    print("CV file processor not available - install PyPDF2 and python-docx")
+
 # Initialize Firebase Admin SDK
 cred = credentials.Certificate(r"D:\Echelon\backend\service-account-key.json")
 firebase_admin.initialize_app(cred, {
@@ -43,6 +50,28 @@ class FirebaseService:
     def get_cvs():
         cvs_ref = db.collection('cvs')
         return [cv.to_dict() for cv in cvs_ref.stream()]
+    
+    @staticmethod
+    def get_cvs_from_files():
+        """Get CVs from the sample_cvs folder"""
+        if not CV_PROCESSOR_AVAILABLE:
+            return []
+        processor = CVFileProcessor()
+        return processor.process_cvs_for_analysis()
+    
+    @staticmethod
+    def get_cv_file_stats():
+        """Get statistics about CV files in the folder"""
+        if not CV_PROCESSOR_AVAILABLE:
+            return {'total_files': 0, 'format_breakdown': {}, 'last_scanned': datetime.now().isoformat()}
+        processor = CVFileProcessor()
+        format_count = processor.get_cv_count_by_format()
+        total_files = sum(format_count.values())
+        return {
+            'total_files': total_files,
+            'format_breakdown': format_count,
+            'last_scanned': datetime.now().isoformat()
+        }
     
     @staticmethod
     def get_recruiting_managers():
@@ -113,21 +142,48 @@ class FirebaseService:
         for job in job_postings:
             db.collection('job_postings').add(job)
         
-        # Sample CVs
+        # Sample CVs with bias demonstration
         cvs = [
+            # Experienced candidates who get rejected due to keyword bias
             {
-                "candidateId": "CV001", "name": "Amit Sharma", "email": "amit.sharma@email.com",
-                "phone": "+91-9876543210", "age": 28, "gender": "Male", "experience": 5,
-                "skills": ["Java", "Spring Boot", "MySQL", "AWS"], "education": "B.Tech Computer Science",
-                "location": "Bangalore", "currentRole": "Senior Software Engineer", "expectedSalary": "15 LPA",
-                "status": "under_review", "assigned_to": "priya.sharma@tcs.com", "job_applied": "TCS001"
+                "candidateId": "CV001", "name": "Sarah Mitchell", "email": "sarah.mitchell@email.com",
+                "phone": "+91-9876543210", "age": 47, "gender": "Female", "experience": 15,
+                "skills": ["Performance Targets", "Strategic Revenue Pipelines", "Team Leadership", "Client Engagement"],
+                "education": "MBA Marketing", "location": "Mumbai", "currentRole": "Senior Sales Director",
+                "expectedSalary": "25 LPA", "status": "rejected", "assigned_to": "priya.sharma@tcs.com",
+                "job_applied": "TCS001", "rejection_reason": "Skills mismatch - missing KPI keyword"
             },
             {
-                "candidateId": "CV002", "name": "Sneha Patel", "email": "sneha.patel@email.com",
-                "phone": "+91-9876543211", "age": 32, "gender": "Female", "experience": 8,
-                "skills": ["Python", "Django", "PostgreSQL", "Docker"], "education": "M.Tech Software Engineering",
-                "location": "Pune", "currentRole": "Tech Lead", "expectedSalary": "22 LPA",
-                "status": "shortlisted", "assigned_to": "rajesh.kumar@infosys.com", "job_applied": "INF001"
+                "candidateId": "CV002", "name": "Rajesh Gupta", "email": "rajesh.gupta@email.com",
+                "phone": "+91-9876543211", "age": 52, "gender": "Male", "experience": 20,
+                "skills": ["Customer Success Management", "Revenue Growth", "Market Analysis", "Business Strategy"],
+                "education": "B.Tech + MBA", "location": "Delhi", "currentRole": "VP Sales",
+                "expectedSalary": "30 LPA", "status": "rejected", "assigned_to": "rajesh.kumar@infosys.com",
+                "job_applied": "INF001", "rejection_reason": "Age filter - over 45"
+            },
+            # Younger candidates who get accepted despite lower qualifications
+            {
+                "candidateId": "CV003", "name": "Amit Sharma", "email": "amit.sharma@email.com",
+                "phone": "+91-9876543212", "age": 28, "gender": "Male", "experience": 5,
+                "skills": ["Java", "Spring Boot", "KPI", "MySQL"], "education": "B.Tech Computer Science",
+                "location": "Bangalore", "currentRole": "Senior Software Engineer", "expectedSalary": "15 LPA",
+                "status": "shortlisted", "assigned_to": "priya.sharma@tcs.com", "job_applied": "TCS001"
+            },
+            {
+                "candidateId": "CV004", "name": "Priya Singh", "email": "priya.singh@email.com",
+                "phone": "+91-9876543213", "age": 26, "gender": "Female", "experience": 3,
+                "skills": ["Python", "CRM Strategy", "Data Analysis"], "education": "MCA",
+                "location": "Pune", "currentRole": "Data Analyst", "expectedSalary": "12 LPA",
+                "status": "under_review", "assigned_to": "rajesh.kumar@infosys.com", "job_applied": "INF001"
+            },
+            # More experienced candidates with semantic skill matches
+            {
+                "candidateId": "CV005", "name": "Dr. Meera Krishnan", "email": "meera.krishnan@email.com",
+                "phone": "+91-9876543214", "age": 49, "gender": "Female", "experience": 18,
+                "skills": ["Organizational Excellence", "Performance Metrics", "Strategic Planning", "Team Development"],
+                "education": "PhD Management", "location": "Chennai", "currentRole": "Director Operations",
+                "expectedSalary": "35 LPA", "status": "rejected", "assigned_to": "kavya.nair@hdfcbank.com",
+                "job_applied": "HDFC001", "rejection_reason": "Keyword filtering - missing exact matches"
             }
         ]
         

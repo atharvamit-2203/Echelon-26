@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 from firebase_service import FirebaseService
 from company_ats_criteria import CompanyATSCriteria
+from fair_hire_sentinel import FairHireSentinel
 import asyncio
 
 class ATSAnalysisService:
@@ -206,72 +207,84 @@ class ATSAnalysisService:
     
     @staticmethod
     async def run_batch_analysis() -> Dict[str, Any]:
-        """Run complete batch analysis process"""
-        print("Starting batch analysis...")
-        
-        # Step 0: Get existing job postings (no need to create)
-        print("Using existing job postings...")
+        """Run Fair-Hire Sentinel batch analysis"""
+        print("🚀 Starting Fair-Hire Sentinel Analysis...")
         
         # Get CVs from Firebase
         cvs = FirebaseService.get_cvs()
         if not cvs:
             return {"error": "No CVs found for analysis"}
         
-        # Step 1: ATS Screening
-        print("Running ATS screening...")
+        # Step 1: ATS Screening (simulate existing broken system)
+        print("📊 Running ATS screening simulation...")
         ats_results = ATSAnalysisService.simulate_ats_screening(cvs)
-        await asyncio.sleep(2)  # Simulate processing time
-        
-        # Step 2: Bias Detection
-        print("Detecting bias patterns...")
-        bias_patterns = ATSAnalysisService.detect_bias_patterns(cvs)
         await asyncio.sleep(1)
         
-        # Step 3: Semantic Analysis & Rescue
-        print("Running semantic analysis...")
-        rejected_cvs = [cv for cv in cvs if cv.get('ats_status') == 'rejected']
-        rescued_candidates = ATSAnalysisService.semantic_analysis(rejected_cvs)
+        # Step 2: Fair-Hire Sentinel Analysis
+        print("🛡️ Activating Fair-Hire Sentinel...")
+        sentinel = FairHireSentinel()
+        sentinel_results = await sentinel.run_analysis(cvs)
         await asyncio.sleep(2)
         
-        # Step 4: Update Firebase with results
-        print("Updating database...")
-        ATSAnalysisService._update_analysis_results(ats_results, bias_patterns, rescued_candidates)
+        # Step 3: Update Firebase with results
+        print("💾 Updating database with rescue results...")
+        ATSAnalysisService._update_sentinel_results(ats_results, sentinel_results)
         
         return {
             'status': 'completed',
             'ats_results': ats_results,
-            'bias_patterns': bias_patterns,
-            'rescued_count': len(rescued_candidates),
+            'sentinel_results': sentinel_results,
+            'rescue_alert': sentinel_results.get('rescue_alert'),
             'timestamp': datetime.now().isoformat()
         }
     
     @staticmethod
-    def _update_analysis_results(ats_results: Dict, bias_patterns: Dict, rescued: List[Dict]):
-        """Update Firebase with analysis results"""
+    def _update_sentinel_results(ats_results: Dict, sentinel_results: Dict):
+        """Update Firebase with Fair-Hire Sentinel results"""
+        
+        rescued = sentinel_results.get('rescued_candidates', [])
+        bias_analysis = sentinel_results.get('bias_analysis', {})
         
         # Update metrics
         FirebaseService.db.collection('metrics').document('dashboard').update({
             'totalCandidates': {'value': ats_results['processed'], 'delta': '+12'},
             'atsRejections': {'value': ats_results['rejected'], 'delta': f"{ats_results['rejected']/ats_results['processed']*100:.0f}%", 'trend': 'down'},
             'rescuedCandidates': {'value': len(rescued), 'delta': f"+{len(rescued)}"},
-            'activeBiasAlerts': {'value': len(bias_patterns['affected_groups']), 'delta': '⚠️'},
+            'activeBiasAlerts': {'value': len(bias_analysis.get('affected_groups', [])), 'delta': '⚠️'},
             'lastUpdated': datetime.now()
         })
         
-        # Add new alerts if bias detected
-        if bias_patterns['bias_score'] > 0.2:
+        # Add Fair-Hire Sentinel rescue alert
+        rescue_alert = sentinel_results.get('rescue_alert')
+        if rescue_alert:
             alert = {
-                'type': 'critical',
-                'title': '🚨 Significant Bias Detected',
-                'description': f'Bias score: {bias_patterns["bias_score"]:.2f}. Multiple discrimination patterns found.',
-                'affected': ', '.join(bias_patterns['affected_groups']),
-                'recommendation': 'Immediate review of screening criteria required',
+                'type': 'rescue_alert',
+                'title': rescue_alert['title'],
+                'description': rescue_alert['message'],
+                'affected': f"{len(rescued)} promising candidates",
+                'recommendation': 'Click to rescue candidates from trash folder',
                 'timestamp': datetime.now(),
-                'active': True
+                'active': True,
+                'candidates': rescue_alert['candidates']
             }
             FirebaseService.db.collection('alerts').add(alert)
+        
+        # Add bias detection alerts
+        if bias_analysis.get('bias_detected'):
+            for alert_data in bias_analysis.get('alerts', []):
+                alert = {
+                    'type': alert_data['type'],
+                    'title': '🔍 Bias Smoke Detector Alert',
+                    'description': alert_data['message'],
+                    'affected': alert_data.get('impact', ''),
+                    'recommendation': 'Review keyword filters for semantic equivalents',
+                    'timestamp': datetime.now(),
+                    'active': True
+                }
+                FirebaseService.db.collection('alerts').add(alert)
         
         # Update rescued candidates
         for candidate in rescued:
             candidate['rescuedAt'] = datetime.now()
+            candidate['rescuedBy'] = 'Fair-Hire Sentinel'
             FirebaseService.db.collection('rescued_candidates').add(candidate)

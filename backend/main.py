@@ -4,11 +4,25 @@ from pydantic import BaseModel
 from typing import List, Optional
 from firebase_service import FirebaseService
 from ats_analysis import ATSAnalysisService
+from ml_fair_hire_sentinel import FairHireSentinel
 import json
 from datetime import datetime
 import asyncio
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="Fair-Hire Sentinel API")
+
+# Initialize ML-powered Fair-Hire Sentinel with Gemini API
+try:
+    ml_sentinel = FairHireSentinel(api_key=os.getenv('GEMINI_API_KEY'))
+except ValueError as e:
+    print(f"Warning: {e}")
+    print("Please set GEMINI_API_KEY in .env file")
+    ml_sentinel = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -207,8 +221,21 @@ async def add_cv(
 @app.get("/api/cvs")
 def get_cvs():
     try:
-        cvs = FirebaseService.get_cvs()
-        return {"cvs": cvs}
+        # Get CVs from both Firebase and file system
+        firebase_cvs = FirebaseService.get_cvs()
+        file_cvs = FirebaseService.get_cvs_from_files()
+        
+        # Combine both sources
+        all_cvs = firebase_cvs + file_cvs
+        return {"cvs": all_cvs}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/cv-file-stats")
+def get_cv_file_stats():
+    try:
+        stats = FirebaseService.get_cv_file_stats()
+        return stats
     except Exception as e:
         return {"error": str(e)}
 
@@ -249,15 +276,53 @@ def get_company_criteria(company_name: str):
 @app.post("/api/start-batch-analysis")
 async def start_batch_analysis(background_tasks: BackgroundTasks):
     try:
-        # Run analysis in background
-        background_tasks.add_task(ATSAnalysisService.run_batch_analysis)
+        # Run ML-powered analysis in background
+        background_tasks.add_task(run_ml_analysis)
         return {
-            "message": "Batch analysis started",
+            "message": "ML-powered Fair-Hire Sentinel analysis started",
             "status": "processing",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
         return {"error": str(e)}
+
+async def run_ml_analysis():
+    """Run ML-powered bias detection and semantic analysis"""
+    try:
+        # Get all CVs
+        firebase_cvs = FirebaseService.get_cvs()
+        file_cvs = FirebaseService.get_cvs_from_files()
+        all_cvs = firebase_cvs + file_cvs
+        
+        # Get job criteria
+        job_keywords = ['KPI', 'CRM', 'Sales', 'Leadership', 'Communication']  # Default keywords
+        
+        # Run ML analysis
+        analysis_results = ml_sentinel.run_full_analysis(all_cvs, job_keywords)
+        
+        # Save results to Firebase
+        db.collection('ml_analysis_results').add({
+            'results': analysis_results,
+            'timestamp': datetime.now()
+        })
+        
+        # Generate rescue alerts
+        if analysis_results['rescue_alerts']:
+            for alert in analysis_results['rescue_alerts']:
+                db.collection('alerts').add({
+                    'type': 'rescue_alert',
+                    'title': f'🚨 Qualified Candidate Needs Rescue',
+                    'description': f'{alert["name"]} has {alert["semantic_score"]:.1%} skill match but was rejected',
+                    'candidate_id': alert['candidate_id'],
+                    'candidates': [alert],
+                    'active': True,
+                    'created_at': datetime.now()
+                })
+        
+        print(f"ML Analysis completed: {analysis_results['statistics']['candidates_rescued']} candidates rescued")
+        
+    except Exception as e:
+        print(f"ML Analysis error: {e}")
 
 @app.get("/api/analysis-status")
 def get_analysis_status():
@@ -274,10 +339,58 @@ def get_analysis_status():
     except Exception as e:
         return {"error": str(e)}
 
-@app.post("/api/populate-data")
-def populate_data():
+@app.get("/api/rescue-alerts")
+def get_rescue_alerts():
     try:
-        FirebaseService.populate_sample_data()
-        return {"message": "Data populated successfully"}
+        alerts_ref = FirebaseService.db.collection('alerts').where('type', '==', 'rescue_alert').where('active', '==', True)
+        alerts = [alert.to_dict() for alert in alerts_ref.stream()]
+        return {"rescue_alerts": alerts}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/semantic-analysis")
+def semantic_analysis(data: dict):
+    try:
+        text1 = data.get('text1', '')
+        text2 = data.get('text2', '')
+        
+        similarity = ml_sentinel.calculate_semantic_similarity(text1, text2)
+        
+        return {
+            'similarity_score': similarity,
+            'semantic_match': similarity > 0.6,
+            'confidence': 'high' if similarity > 0.8 else 'medium' if similarity > 0.6 else 'low'
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/bias-detection")
+def bias_detection(data: dict):
+    try:
+        cv_text = data.get('cv_text', '')
+        keywords = data.get('keywords', [])
+        
+        bias_analysis = ml_sentinel.detect_keyword_bias(cv_text, keywords)
+        
+        return bias_analysis
+    except Exception as e:
+        return {"error": str(e)}
+@app.post("/api/job-criteria")
+def save_job_criteria(data: dict):
+    try:
+        job_title = data.get('jobTitle')
+        keywords = data.get('keywords', [])
+        
+        # Save to Firebase
+        criteria_data = {
+            'job_title': job_title,
+            'keywords': keywords,
+            'created_at': datetime.now(),
+            'created_by': 'recruiter',
+            'status': 'active'
+        }
+        
+        db.collection('job_criteria').add(criteria_data)
+        return {"message": f"Job criteria saved for {job_title}"}
     except Exception as e:
         return {"error": str(e)}

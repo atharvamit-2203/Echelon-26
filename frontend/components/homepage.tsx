@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Shield, AlertTriangle, TrendingUp, Users, CheckCircle, ArrowRight, Zap, Eye, Target } from 'lucide-react';
 
 interface FairHireHomepageProps {
@@ -7,6 +8,19 @@ interface FairHireHomepageProps {
 }
 
 export default function FairHireHomepage({ onNavigateToLogin }: FairHireHomepageProps) {
+  const router = useRouter();
+
+  const handleViewDashboard = () => {
+    router.push('/dashboard');
+  };
+
+  const handleViewAnalytics = () => {
+    router.push('/analytics');
+  };
+
+  const handleViewCVs = () => {
+    router.push('/cvs');
+  };
   return (
     <div className="min-h-screen bg-black text-gray-100">
       {/* Navigation Bar */}
@@ -54,8 +68,11 @@ export default function FairHireHomepage({ onNavigateToLogin }: FairHireHomepage
                 Get Started
                 <ArrowRight className="w-5 h-5" />
               </button>
-              <button className="px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 rounded-lg text-lg font-semibold transition-colors">
-                View Demo
+              <button 
+                onClick={handleViewDashboard}
+                className="px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 rounded-lg text-lg font-semibold transition-colors"
+              >
+                View Dashboard
               </button>
             </div>
           </div>
@@ -159,10 +176,10 @@ export default function FairHireHomepage({ onNavigateToLogin }: FairHireHomepage
                 </p>
               </div>
               <button 
-                onClick={onNavigateToLogin}
+                onClick={handleViewDashboard}
                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors whitespace-nowrap"
               >
-                Investigate
+                View Dashboard
               </button>
             </div>
           </div>
@@ -182,10 +199,10 @@ export default function FairHireHomepage({ onNavigateToLogin }: FairHireHomepage
                 </p>
               </div>
               <button 
-                onClick={onNavigateToLogin}
+                onClick={handleViewAnalytics}
                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors whitespace-nowrap"
               >
-                Review
+                View Analytics
               </button>
             </div>
           </div>
@@ -205,10 +222,10 @@ export default function FairHireHomepage({ onNavigateToLogin }: FairHireHomepage
                 </p>
               </div>
               <button 
-                onClick={onNavigateToLogin}
+                onClick={handleViewCVs}
                 className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded font-medium transition-colors whitespace-nowrap"
               >
-                View Candidates
+                View CVs
               </button>
             </div>
           </div>
@@ -232,7 +249,10 @@ export default function FairHireHomepage({ onNavigateToLogin }: FairHireHomepage
               Get Started
               <ArrowRight className="w-5 h-5" />
             </button>
-            <button className="px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 rounded-lg text-lg font-semibold transition-colors">
+            <button 
+              onClick={handleViewAnalytics}
+              className="px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 rounded-lg text-lg font-semibold transition-colors"
+            >
               View Analytics
             </button>
           </div>

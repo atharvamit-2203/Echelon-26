@@ -1,6 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight, Github, Chrome } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface LoginFormData {
   email: string;
@@ -12,13 +14,11 @@ interface LoginFormData {
 interface FairHireLoginProps {
   initialIsLogin?: boolean;
   onNavigateToHome?: () => void;
-  onLoginSuccess?: (formData: LoginFormData) => void;
 }
 
 export default function FairHireLogin({ 
   initialIsLogin = true, 
-  onNavigateToHome, 
-  onLoginSuccess 
+  onNavigateToHome
 }: FairHireLoginProps) {
   const [isLogin, setIsLogin] = useState<boolean>(initialIsLogin);
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -28,35 +28,37 @@ export default function FairHireLogin({
     confirmPassword: '',
     companyName: ''
   });
+  
+  const { login, showToast } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     // Validation
     if (!formData.email || !formData.password) {
-      alert('Email and password are required');
+      showToast('Email and password are required', 'error');
       return;
     }
     
     if (!isLogin && formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match');
+      showToast('Passwords do not match', 'error');
       return;
     }
     
     if (!isLogin && !formData.companyName) {
-      alert('Company name is required');
+      showToast('Company name is required', 'error');
       return;
     }
     
-    console.log('Form submitted:', formData);
-    
     // Simulate successful login/signup
-    alert(`${isLogin ? 'Login' : 'Sign up'} successful!`);
+    login(formData.email, formData.companyName);
+    showToast(`${isLogin ? 'Login' : 'Sign up'} successful! Welcome to Fair-Hire.`, 'success');
     
-    // Call success callback if provided
-    if (onLoginSuccess) {
-      onLoginSuccess(formData);
-    }
+    // Navigate to dashboard after successful login
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 1000);
   };
 
   return (

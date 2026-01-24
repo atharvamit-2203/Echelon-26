@@ -1,20 +1,87 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, AlertTriangle, CheckCircle, XCircle, Clock, Activity, Download, Eye } from 'lucide-react';
 import BatchAnalysisPanel from '../../components/BatchAnalysisPanel';
+import RecruiterUploadPanel from '../../components/RecruiterUploadPanel';
 import Navbar from '../../components/Navbar';
+import ProtectedRoute from '../../components/ProtectedRoute';
 
 const Dashboard = () => {
   const [selectedResume, setSelectedResume] = useState(null);
+  const [pendingResumes, setPendingResumes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [homeData, setHomeData] = useState<any>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
-  const pendingResumes = [
-    { id: 'R-2401', name: 'Michael Rodriguez', position: 'Senior Sales Manager', uploadedAt: '2 mins ago', status: 'pending', age: '48', gender: 'Male' },
-    { id: 'R-2402', name: 'Jennifer Wu', position: 'CRM Specialist', uploadedAt: '5 mins ago', status: 'pending', age: '42', gender: 'Female' },
-    { id: 'R-2403', name: 'David Thompson', position: 'Business Analyst', uploadedAt: '8 mins ago', status: 'pending', age: '35', gender: 'Male' },
-    { id: 'R-2404', name: 'Sarah Martinez', position: 'Marketing Director', uploadedAt: '12 mins ago', status: 'pending', age: '51', gender: 'Female' },
-    { id: 'R-2405', name: 'James Park', position: 'Account Executive', uploadedAt: '15 mins ago', status: 'pending', age: '29', gender: 'Male' },
-  ];
+  useEffect(() => {
+    fetchCVs();
+    fetchHomeData();
+  }, []);
+
+  const fetchHomeData = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/home');
+      const data = await response.json();
+      setHomeData(data);
+    } catch (error) {
+      console.error('Error fetching home data:', error);
+    }
+  };
+
+  const startAnalysis = async () => {
+    setAnalyzing(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/start-batch-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        alert('Analysis started! Check Analytics page for results.');
+        setTimeout(() => {
+          fetchCVs();
+          fetchHomeData();
+          setAnalyzing(false);
+        }, 5000);
+      }
+    } catch (error) {
+      console.error('Error starting analysis:', error);
+      setAnalyzing(false);
+    }
+  };
+
+  const fetchCVs = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/cvs');
+      const data = await response.json();
+      
+      if (data.cvs) {
+        // Transform CV data for display
+        const transformedCVs = data.cvs.map((cv, index) => ({
+          id: cv.candidateId || `CV-${index + 1}`,
+          name: cv.name || cv.filename || 'Unknown Candidate',
+          position: cv.currentRole || 'Position from CV',
+          uploadedAt: cv.uploadedAt ? 'Recently uploaded' : 'File uploaded',
+          status: cv.status || 'pending',
+          age: cv.age || 'N/A',
+          gender: cv.gender || 'N/A',
+          source: cv.source || 'database',
+          filename: cv.filename
+        }));
+        setPendingResumes(transformedCVs);
+      }
+    } catch (error) {
+      console.error('Error fetching CVs:', error);
+      // Fallback to sample data if API fails
+      setPendingResumes([
+        { id: 'R-2401', name: 'Michael Rodriguez', position: 'Senior Sales Manager', uploadedAt: '2 mins ago', status: 'pending', age: '48', gender: 'Male' },
+        { id: 'R-2402', name: 'Jennifer Wu', position: 'CRM Specialist', uploadedAt: '5 mins ago', status: 'pending', age: '42', gender: 'Female' },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const atsScreening = [
     { id: 'R-2398', name: 'Lisa Chen', position: 'Sales Director', status: 'rejected', reason: 'Missing keyword: "KPI"', similarity: '94%', flagged: true, age: '46' },
@@ -23,26 +90,54 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-gray-100">
-      <Navbar />
-      <div className="px-6 py-6 space-y-6">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-black text-gray-100">
+        <Navbar />
+        <div className="px-6 py-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">📊 Monitoring Dashboard</h1>
-        <p className="text-gray-400 mt-1">Real-time monitoring of ATS screening processes</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">📊 Monitoring Dashboard</h1>
+          <p className="text-gray-400 mt-1">Real-time monitoring of ATS screening processes</p>
+        </div>
+        <button
+          onClick={startAnalysis}
+          disabled={analyzing}
+          className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+        >
+          {analyzing ? (
+            <>
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <Activity className="w-5 h-5" />
+              Run Analysis
+            </>
+          )}
+        </button>
       </div>
 
       {/* Live Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gray-900 border border-gray-700 rounded-lg p-5">
-          <div className="text-sm text-gray-400 mb-2">Candidates Screened Today</div>
-          <div className="text-3xl font-bold text-white">47</div>
-          <div className="text-sm text-green-400 mt-1">+12 from yesterday</div>
+          <div className="text-sm text-gray-400 mb-2">Total Candidates</div>
+          <div className="text-3xl font-bold text-white">{homeData?.metrics?.[0]?.value || pendingResumes.length}</div>
+          <div className="text-sm text-green-400 mt-1">{homeData?.metrics?.[0]?.delta || '+12'}</div>
         </div>
         <div className="bg-gray-900 border border-gray-700 rounded-lg p-5">
-          <div className="text-sm text-gray-400 mb-2">Bias Alerts</div>
-          <div className="text-3xl font-bold text-red-400">3</div>
-          <div className="text-sm text-green-400 mt-1">-1 from yesterday</div>
+          <div className="text-sm text-gray-400 mb-2">ATS Rejections</div>
+          <div className="text-3xl font-bold text-red-400">{homeData?.metrics?.[1]?.value || '88'}</div>
+          <div className="text-sm text-green-400 mt-1">{homeData?.metrics?.[1]?.delta || '35%'}</div>
+        </div>
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-5">
+          <div className="text-sm text-gray-400 mb-2">Rescued Candidates</div>
+          <div className="text-3xl font-bold text-amber-400">{homeData?.metrics?.[2]?.value || '12'}</div>
+          <div className="text-sm text-green-400 mt-1">{homeData?.metrics?.[2]?.delta || '+5'}</div>
         </div>
         <div className="bg-gray-900 border border-gray-700 rounded-lg p-5">
           <div className="text-sm text-gray-400 mb-2">Rescue Rate</div>
@@ -57,7 +152,7 @@ const Dashboard = () => {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* New Resumes to Analyze */}
         <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
           <div className="flex items-center justify-between mb-5">
@@ -71,46 +166,68 @@ const Dashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {pendingResumes.map((resume) => (
-              <div key={resume.id} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 hover:bg-gray-800 transition-colors">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-gray-400" />
+            {loading ? (
+              <div className="text-center py-8 text-gray-400">Loading CVs...</div>
+            ) : pendingResumes.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                No CVs found. Add files to the sample_cvs folder.
+              </div>
+            ) : (
+              pendingResumes.map((resume) => (
+                <div key={resume.id} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 hover:bg-gray-800 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-white">{resume.name}</h3>
+                          <p className="text-xs text-gray-400">{resume.position}</p>
+                          {resume.filename && (
+                            <p className="text-xs text-cyan-400">📁 {resume.filename}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-white">{resume.name}</h3>
-                        <p className="text-xs text-gray-400">{resume.position}</p>
+                      <div className="flex items-center gap-4 text-xs text-gray-500 ml-13">
+                        <span>ID: {resume.id}</span>
+                        <span>•</span>
+                        <span>{resume.uploadedAt}</span>
+                        <span>•</span>
+                        <span>Age: {resume.age}</span>
+                        <span>•</span>
+                        <span>{resume.gender}</span>
+                        {resume.source === 'file_upload' && (
+                          <>
+                            <span>•</span>
+                            <span className="text-cyan-400">📂 File</span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-gray-500 ml-13">
-                      <span>ID: {resume.id}</span>
-                      <span>•</span>
-                      <span>{resume.uploadedAt}</span>
-                      <span>•</span>
-                      <span>Age: {resume.age}</span>
-                      <span>•</span>
-                      <span>{resume.gender}</span>
+                    <div className="flex gap-2">
+                      <button className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs font-medium flex items-center gap-1">
+                        <Eye className="w-3 h-3" />
+                        Preview
+                      </button>
+                      <button className="p-1.5 text-gray-400 hover:text-gray-200">
+                        <span className="text-lg">⋮</span>
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs font-medium flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      Preview
-                    </button>
-                    <button className="p-1.5 text-gray-400 hover:text-gray-200">
-                      <span className="text-lg">⋮</span>
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <div className="mt-4">
             <BatchAnalysisPanel />
           </div>
+        </div>
+
+        {/* Recruiter Upload Panel */}
+        <div>
+          <RecruiterUploadPanel />
         </div>
 
         {/* ATS Screening & Analysis */}
@@ -220,8 +337,9 @@ const Dashboard = () => {
       </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
-};
+}
 
 function ActivityItem({ time, event, detail, type }: { time: string; event: string; detail: string; type: string }) {
   const getIcon = () => {
