@@ -1,0 +1,66 @@
+JAMES WILSON
+Associate Engineering Manager
+Email: james.wilson@techlead.com | Phone: (555) 901-2345
+
+PROFESSIONAL SUMMARY
+Associate Engineering Manager with 8 years of technical experience and 2 years in leadership. Passionate about building high-performing teams, delivering quality software, and fostering engineering excellence. Strong hands-on technical background combined with people management skills.
+
+TECHNICAL & LEADERSHIP SKILLS
+• Technical: Python, JavaScript, Java, AWS, Microservices, APIs
+• Architecture: System Design, Scalability, Cloud Infrastructure
+• Management: Team Leadership, Performance Reviews, Hiring, Mentoring
+• Methodologies: Agile, Scrum, Kanban, CI/CD
+• Tools: JIRA, Confluence, GitHub, Jenkins, Docker, Kubernetes
+• Soft Skills: Communication, Problem Solving, Conflict Resolution
+
+PROFESSIONAL EXPERIENCE
+
+Associate Engineering Manager | TechCorp Industries | 2023 - Present
+• Manage team of 8 engineers across frontend, backend, and DevOps
+• Conduct 1-on-1s, performance reviews, and career development planning
+• Led successful migration of monolith to microservices architecture
+• Improved team velocity by 40% through process improvements
+• Coordinated with Product, Design, and other engineering teams
+• Interviewed and hired 5 engineers growing the team
+• Maintained hands-on coding contributing to critical features
+
+Senior Software Engineer & Tech Lead | Digital Solutions Inc. | 2020 - 2023
+• Led team of 4 engineers building customer-facing applications
+• Architected scalable backend systems handling 5M+ daily requests
+• Mentored junior engineers through code reviews and pair programming
+• Made technical decisions on architecture and technology stack
+• Collaborated with engineering manager on team planning
+
+Software Engineer | Cloud Technologies | 2017 - 2020
+• Developed full-stack applications using React and Node.js
+• Built RESTful APIs and integrated third-party services
+• Implemented CI/CD pipelines and automated testing
+• Participated in on-call rotation for production support
+
+Software Developer | StartupLab | 2016 - 2017
+• Created web applications using Python Django
+• Worked in fast-paced startup environment
+• Learned modern software development practices
+
+EDUCATION
+Master of Science in Computer Science
+University of Michigan | 2014 - 2016
+
+Bachelor of Engineering in Software Engineering
+Purdue University | 2010 - 2014
+
+CERTIFICATIONS
+• AWS Certified Solutions Architect - Professional
+• Certified ScrumMaster (CSM)
+• Engineering Leadership Certificate (Reforge)
+
+ACHIEVEMENTS
+• Grew team from 4 to 8 engineers with 100% retention
+• Reduced production incidents by 60% through better processes
+• Delivered 3 major product releases on time and under budget
+• Employee satisfaction score: 4.8/5.0 in team surveys
+• Speaker at tech conferences on engineering leadership
+
+PUBLICATIONS
+• "Building High-Performing Engineering Teams" - Medium (10K+ views)
+• "From IC to Manager: My Journey" - Engineering Blog

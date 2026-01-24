@@ -129,16 +129,84 @@ class CVFileProcessor:
             format_count[file_type] = format_count.get(file_type, 0) + 1
         return format_count
     
+    def extract_candidate_info_from_text(self, text_content, filename):
+        """Extract candidate name and position from CV text"""
+        lines = text_content.split('\n')
+        name = 'Unknown Candidate'
+        position = 'Position not specified'
+        
+        # Try to extract from filename first (format: Name_Position.txt)
+        if filename:
+            parts = filename.replace('.txt', '').replace('_', ' ').split()
+            if len(parts) >= 2:
+                # Extract name (first 2-3 words usually)
+                name_parts = []
+                position_parts = []
+                
+                for part in parts:
+                    # Common position keywords
+                    if part.lower() in ['senior', 'junior', 'associate', 'lead', 'engineer', 'developer', 
+                                        'manager', 'scientist', 'analyst', 'architect', 'intern', 'swe',
+                                        'dev', 'devops', 'frontend', 'backend', 'full', 'stack', 'ml',
+                                        'data', 'cloud', 'security', 'qa', 'mobile', 'blockchain', 'ux', 'ui']:
+                        position_parts.append(part)
+                    elif len(name_parts) < 3:  # Usually first 2-3 words are name
+                        name_parts.append(part)
+                
+                if name_parts:
+                    name = ' '.join(name_parts)
+                if position_parts:
+                    position = ' '.join(position_parts)
+        
+        # Try to extract from first few lines of CV
+        if lines:
+            first_line = lines[0].strip()
+            if first_line and len(first_line) < 50 and first_line[0].isupper():
+                name = first_line
+            
+            # Look for position in first 5 lines
+            for line in lines[1:5]:
+                line = line.strip()
+                if line and len(line) < 100:
+                    lower_line = line.lower()
+                    if any(keyword in lower_line for keyword in ['engineer', 'developer', 'manager', 
+                                                                   'scientist', 'analyst', 'architect',
+                                                                   'designer', 'specialist']):
+                        position = line
+                        break
+        
+        return name, position
+    
     def process_cvs_for_analysis(self):
         cv_files = self.scan_cv_folder()
         processed_cvs = []
         
         for i, cv in enumerate(cv_files):
+            # Extract candidate info from text and filename
+            name, position = self.extract_candidate_info_from_text(
+                cv['text_content'], 
+                cv['filename']
+            )
+            
+            # Extract skills (simple keyword matching for now)
+            text_lower = cv['text_content'].lower()
+            common_skills = ['python', 'java', 'javascript', 'react', 'node.js', 'aws', 'docker', 
+                           'kubernetes', 'sql', 'mongodb', 'git', 'agile', 'api', 'rest', 'graphql',
+                           'typescript', 'vue', 'angular', 'django', 'flask', 'spring', 'terraform',
+                           'jenkins', 'ci/cd', 'microservices', 'machine learning', 'tensorflow',
+                           'pytorch', 'data science', 'analytics', 'cloud', 'azure', 'gcp']
+            
+            found_skills = [skill for skill in common_skills if skill in text_lower]
+            
             cv_analysis_data = {
                 'candidateId': f'FILE_{i+1:03d}',
+                'name': name,
+                'currentRole': position,
                 'filename': cv['filename'],
                 'file_type': cv['file_type'],
+                'content': cv['text_content'],
                 'text_content': cv['text_content'],
+                'skills': found_skills,
                 'status': 'pending_analysis',
                 'uploadedAt': datetime.now(),
                 'source': 'file_upload'

@@ -1,0 +1,62 @@
+ALEX THOMPSON
+Software Engineering Intern
+Email: alex.thompson@student.edu | Phone: (555) 789-0123
+GitHub: github.com/alexthompson
+
+EDUCATION
+Bachelor of Science in Computer Science (Expected May 2025)
+Massachusetts Institute of Technology
+GPA: 3.8/4.0
+Relevant Coursework: Data Structures, Algorithms, Web Development, Database Systems, Machine Learning
+
+TECHNICAL SKILLS
+• Languages: Python, Java, JavaScript, C++, HTML, CSS
+• Frameworks: React, Node.js, Flask, Django
+• Tools: Git, VS Code, IntelliJ IDEA, Docker
+• Databases: MySQL, MongoDB, Firebase
+• Cloud: AWS basics, Heroku
+• Concepts: OOP, Data Structures, Algorithms, RESTful APIs
+
+PROJECTS
+
+Personal Finance Tracker | Full-Stack Application
+• Built web app using React frontend and Flask backend
+• Implemented user authentication with JWT tokens
+• Designed MySQL database schema for financial transactions
+• Deployed on Heroku with CI/CD pipeline
+
+Campus Food Delivery App | Mobile Development
+• Developed Android app using Java and Firebase
+• Integrated Google Maps API for real-time delivery tracking
+• Implemented push notifications and in-app messaging
+• 200+ downloads within MIT campus
+
+Algorithm Visualizer | Educational Tool
+• Created interactive visualizations for sorting and graph algorithms
+• Used vanilla JavaScript and HTML5 Canvas
+• Hosted on GitHub Pages with 500+ stars
+
+EXPERIENCE
+
+Software Development Intern | Local Tech Startup | Summer 2024
+• Worked on full-stack web application using React and Node.js
+• Fixed 15+ bugs and implemented 5 new features
+• Participated in daily standups and sprint planning meetings
+• Learned Agile development methodology
+
+Teaching Assistant - Intro to Programming | MIT | Sep 2023 - Present
+• Hold weekly office hours helping 50+ students with Python programming
+• Grade assignments and provide constructive feedback
+• Assist professor with lecture preparation
+
+ACTIVITIES & LEADERSHIP
+• Member, MIT Computer Science Club
+• Hackathon Participant - Won 2nd place at HackMIT 2024
+• Volunteer Coding Instructor - Teaching kids programming
+
+CERTIFICATIONS
+• Python for Everybody Specialization (Coursera)
+• Full Stack Web Development (Udemy)
+
+INTERESTS
+Open source contribution, competitive programming, technology blogging

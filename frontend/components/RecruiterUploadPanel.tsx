@@ -9,6 +9,7 @@ export default function RecruiterUploadPanel() {
   const [newKeyword, setNewKeyword] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [extractingSkills, setExtractingSkills] = useState(false);
 
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
@@ -44,6 +45,36 @@ export default function RecruiterUploadPanel() {
     setKeywords(keywords.filter(k => k !== keyword));
   };
 
+  const extractSkillsFromAI = async () => {
+    if (!jobTitle.trim()) {
+      alert('Please enter a job title first');
+      return;
+    }
+    
+    setExtractingSkills(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/extract-skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobTitle })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.skills) {
+        setKeywords(data.skills);
+        alert(`AI extracted ${data.skills.length} skills for ${jobTitle}!`);
+      } else {
+        alert('Error extracting skills: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error extracting skills:', error);
+      alert('Failed to extract skills. Please try again.');
+    } finally {
+      setExtractingSkills(false);
+    }
+  };
+
   const saveJobCriteria = async () => {
     try {
       const response = await fetch('http://localhost:8000/api/job-criteria', {
@@ -52,8 +83,13 @@ export default function RecruiterUploadPanel() {
         body: JSON.stringify({ jobTitle, keywords })
       });
       
+      const data = await response.json();
+      
       if (response.ok) {
         alert('Job criteria saved successfully!');
+        if (data.keywords) {
+          setKeywords(data.keywords);
+        }
       }
     } catch (error) {
       console.error('Error saving criteria:', error);
@@ -140,13 +176,35 @@ export default function RecruiterUploadPanel() {
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Job Title/Position
             </label>
-            <input
-              type="text"
-              value={jobTitle}
-              onChange={(e) => setJobTitle(e.target.value)}
-              placeholder="e.g., Senior Sales Manager, Data Scientist..."
-              className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="e.g., Senior Sales Manager, Data Scientist..."
+                className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+              />
+              <button
+                onClick={extractSkillsFromAI}
+                disabled={!jobTitle.trim() || extractingSkills}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+              >
+                {extractingSkills ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    AI Thinking...
+                  </>
+                ) : (
+                  <>
+                    ✨ AI Extract Skills
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">💡 Click AI Extract to auto-generate skills based on job title</p>
           </div>
 
           <div>

@@ -1,0 +1,56 @@
+PRIYA SHARMA
+Data Scientist
+Email: priya.sharma@email.com | Phone: (555) 234-5678
+GitHub: github.com/priyasharma
+
+SUMMARY
+Data Scientist with 5 years of experience in machine learning, statistical analysis, and data visualization. Expertise in Python, TensorFlow, and building predictive models for business insights.
+
+TECHNICAL SKILLS
+• Programming: Python, R, SQL, Scala
+• ML/AI: TensorFlow, PyTorch, Scikit-learn, Keras, XGBoost
+• Data Processing: Pandas, NumPy, Apache Spark, Airflow
+• Visualization: Matplotlib, Seaborn, Plotly, Tableau, Power BI
+• Cloud: AWS SageMaker, Google Cloud AI Platform, Azure ML
+• Databases: PostgreSQL, MySQL, MongoDB, Snowflake
+• Tools: Jupyter, Git, Docker, MLflow
+
+PROFESSIONAL EXPERIENCE
+
+Data Scientist | AI Analytics Co. | 2021 - Present
+• Developed ML models improving customer retention by 28%
+• Built recommendation engine using collaborative filtering serving 500K+ users
+• Implemented real-time fraud detection system reducing losses by $1.2M annually
+• Created automated data pipelines processing 10TB+ data monthly
+• Presented insights to C-level executives driving strategic decisions
+
+Junior Data Scientist | DataCorp | 2019 - 2021
+• Analyzed customer behavior patterns using Python and SQL
+• Built predictive models with 85%+ accuracy for sales forecasting
+• Created interactive dashboards in Tableau for stakeholder reporting
+• Collaborated with engineering team to deploy models in production
+
+Data Analyst Intern | Tech Solutions | Summer 2018
+• Performed exploratory data analysis on customer datasets
+• Developed SQL queries for business intelligence reports
+• Assisted in A/B testing analysis and statistical significance testing
+
+EDUCATION
+Master of Science in Data Science
+Stanford University | 2017 - 2019
+
+Bachelor of Engineering in Computer Science
+Indian Institute of Technology, Delhi | 2013 - 2017
+
+CERTIFICATIONS
+• TensorFlow Developer Certificate
+• AWS Certified Machine Learning - Specialty
+• Deep Learning Specialization (Coursera)
+
+PUBLICATIONS
+• "Improving Recommendation Systems with Deep Learning" - ICML 2023
+• "Real-time Fraud Detection Using ML" - KDD 2022
+
+PROJECTS
+• Sentiment Analysis Tool - Analyzed 1M+ tweets using NLP (BERT, spaCy)
+• Stock Price Predictor - Time series forecasting with LSTM networks

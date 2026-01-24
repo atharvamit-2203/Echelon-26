@@ -5,13 +5,14 @@ import { useState, useEffect } from 'react';
 
 interface NotificationProps {
   type: 'success' | 'error' | 'info' | 'warning';
-  title: string;
+  title?: string;
   message: string;
   duration?: number;
   onClose?: () => void;
+  onClick?: () => void;
 }
 
-export default function Notification({ type, title, message, duration = 5000, onClose }: NotificationProps) {
+export default function Notification({ type, title, message, duration = 5000, onClose, onClick }: NotificationProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -28,36 +29,43 @@ export default function Notification({ type, title, message, duration = 5000, on
   if (!isVisible) return null;
 
   const icons = {
-    success: <CheckCircle className="w-5 h-5 text-green-500" />,
-    error: <AlertTriangle className="w-5 h-5 text-red-500" />,
-    warning: <AlertTriangle className="w-5 h-5 text-yellow-500" />,
-    info: <Info className="w-5 h-5 text-blue-500" />
+    success: <CheckCircle className="w-5 h-5 text-green-400" />,
+    error: <AlertTriangle className="w-5 h-5 text-red-400" />,
+    warning: <AlertTriangle className="w-5 h-5 text-yellow-400" />,
+    info: <Info className="w-5 h-5 text-blue-400" />
   };
 
   const bgColors = {
-    success: 'bg-green-50 border-green-200',
-    error: 'bg-red-50 border-red-200',
-    warning: 'bg-yellow-50 border-yellow-200',
-    info: 'bg-blue-50 border-blue-200'
+    success: 'bg-green-900/30 border-green-700',
+    error: 'bg-red-900/30 border-red-700',
+    warning: 'bg-yellow-900/30 border-yellow-700',
+    info: 'bg-blue-900/30 border-blue-700'
   };
 
   const textColors = {
-    success: 'text-green-800',
-    error: 'text-red-800',
-    warning: 'text-yellow-800',
-    info: 'text-blue-800'
+    success: 'text-green-300',
+    error: 'text-red-300',
+    warning: 'text-yellow-300',
+    info: 'text-blue-300'
   };
 
   return (
-    <div className={`fixed top-4 right-4 z-50 max-w-md w-full border rounded-lg shadow-lg p-4 ${bgColors[type]} animate-slide-in`}>
+    <div 
+      onClick={onClick}
+      className={`fixed top-4 right-4 z-50 max-w-md w-full border rounded-lg shadow-2xl p-4 ${bgColors[type]} ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''} animate-slide-in`}
+    >
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0">{icons[type]}</div>
         <div className="flex-1">
-          <h4 className={`font-semibold ${textColors[type]}`}>{title}</h4>
-          <p className={`text-sm mt-1 ${textColors[type]}`}>{message}</p>
+          {title && <h4 className={`font-semibold ${textColors[type]}`}>{title}</h4>}
+          <p className={`text-sm ${title ? 'mt-1' : ''} ${textColors[type]}`}>{message}</p>
+          {onClick && (
+            <p className="text-xs mt-2 text-gray-400">Click to view details →</p>
+          )}
         </div>
         <button
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             setIsVisible(false);
             onClose?.();
           }}

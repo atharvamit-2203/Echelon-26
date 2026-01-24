@@ -1,0 +1,48 @@
+JOHN ANDERSON
+Senior Software Engineer
+Email: john.anderson@email.com | Phone: (555) 123-4567
+LinkedIn: linkedin.com/in/johnanderson
+
+PROFESSIONAL SUMMARY
+Senior Software Engineer with 8+ years of experience in full-stack development, cloud architecture, and leading engineering teams. Expert in Python, JavaScript, AWS, and microservices architecture.
+
+TECHNICAL SKILLS
+• Languages: Python, JavaScript, TypeScript, Java, Go
+• Frontend: React, Next.js, Vue.js, HTML5, CSS3
+• Backend: Node.js, Django, FastAPI, Spring Boot
+• Cloud & DevOps: AWS (EC2, S3, Lambda, RDS), Docker, Kubernetes, Terraform
+• Databases: PostgreSQL, MongoDB, Redis, DynamoDB
+• Tools: Git, Jenkins, GitHub Actions, JIRA, Confluence
+
+PROFESSIONAL EXPERIENCE
+
+Senior Software Engineer | Tech Innovations Inc. | 2020 - Present
+• Led team of 6 engineers building scalable microservices handling 10M+ requests/day
+• Architected and deployed AWS infrastructure using Terraform and CloudFormation
+• Reduced system latency by 45% through Redis caching and database optimization
+• Implemented CI/CD pipelines with GitHub Actions, reducing deployment time by 60%
+• Mentored junior developers and conducted code reviews
+
+Software Engineer | Digital Solutions Corp | 2017 - 2020
+• Developed RESTful APIs using Python Flask and Node.js Express
+• Built responsive web applications with React and Redux
+• Integrated payment systems (Stripe, PayPal) processing $2M+ annually
+• Collaborated with product and design teams in Agile environment
+
+Software Developer | StartupXYZ | 2016 - 2017
+• Created internal tools using Python and Django
+• Implemented automated testing with Pytest and Jest
+• Optimized database queries improving performance by 30%
+
+EDUCATION
+Bachelor of Science in Computer Science
+University of California, Berkeley | 2012 - 2016
+
+CERTIFICATIONS
+• AWS Certified Solutions Architect - Associate
+• Certified Kubernetes Administrator (CKA)
+
+ACHIEVEMENTS
+• Built open-source library with 2.5K+ GitHub stars
+• Speaker at PyCon 2023 on "Scaling Python Applications"
+• Hackathon winner - Best Cloud Solution 2021

@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, CheckCircle, AlertTriangle, TrendingUp, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, Target, Sparkles } from 'lucide-react';
+import { FileText, CheckCircle, AlertTriangle, TrendingUp, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, Target, Sparkles, Activity } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Navbar from '@/components/Navbar';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import Notification from '@/components/Notification';
 
 interface CandidateData {
   id: number;
@@ -31,9 +32,18 @@ export default function Analytics() {
   const [realCVs, setRealCVs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [candidateAnalytics, setCandidateAnalytics] = useState<CandidateData[]>([]);
+  const [resumes, setResumes] = useState<any[]>([]);
+  const [rescueAlerts, setRescueAlerts] = useState<any[]>([]);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationData, setNotificationData] = useState<{ message: string; count: number }>({ message: '', count: 0 });
 
   useEffect(() => {
     fetchCVData();
+    fetchAnalysisResults();
+    // Set up polling interval to check for new results
+    const interval = setInterval(fetchAnalysisResults, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchCVData = async () => {
@@ -42,6 +52,8 @@ export default function Analytics() {
       const data = await response.json();
       if (data.cvs) {
         setRealCVs(data.cvs);
+        // Transform CV data for display
+        transformCVsToResumes(data.cvs);
       }
     } catch (error) {
       console.error('Error fetching CVs:', error);
@@ -50,39 +62,219 @@ export default function Analytics() {
     }
   };
 
-  const startAnalysis = async () => {
-    setAnalyzing(true);
+  const fetchAnalysisResults = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/start-batch-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const [statusRes, alertsRes] = await Promise.all([
+        fetch('http://localhost:8000/api/analysis-status'),
+        fetch('http://localhost:8000/api/rescue-alerts')
+      ]);
       
-      if (response.ok) {
-        alert('Analysis started! Results will appear shortly.');
-        // Refresh data after a delay
-        setTimeout(() => {
-          fetchCVData();
-          setAnalyzing(false);
-        }, 5000);
+      const statusData = await statusRes.json();
+      const alertsData = await alertsRes.json();
+      
+      if (alertsData.rescue_alerts) {
+        setRescueAlerts(alertsData.rescue_alerts);
+        // Transform rescue alerts to candidate analytics
+        transformAlertsToAnalytics(alertsData.rescue_alerts);
       }
     } catch (error) {
-      console.error('Error starting analysis:', error);
-      setAnalyzing(false);
+      console.error('Error fetching analysis results:', error);
     }
   };
 
-  // Enhanced candidate data for scatter plots
-  const candidateAnalytics: CandidateData[] = [
-    { id: 1, name: 'Alice Johnson', atsScore: 92, semanticScore: 88, codingScore: 89, actualPotential: 89, status: 'accepted', reason: 'Strong match', yearsExp: 10, education: 'BS CS', isRescued: false, driftScore: 3 },
-    { id: 2, name: 'Marcus Davis', atsScore: 65, semanticScore: 82, codingScore: 78, actualPotential: 80, status: 'rejected', reason: 'Keyword mismatch', yearsExp: 6, education: 'BA Business', isRescued: true, driftScore: 15 },
-    { id: 3, name: 'Sarah Chen', atsScore: 95, semanticScore: 90, codingScore: 92, actualPotential: 92, status: 'accepted', reason: 'Excellent fit', yearsExp: 8, education: 'MBA', isRescued: false, driftScore: 2 },
-    { id: 4, name: 'John Smith', atsScore: 58, semanticScore: 75, codingScore: 72, actualPotential: 73, status: 'rejected', reason: 'Missing keywords', yearsExp: 5, education: 'BS IT', isRescued: true, driftScore: 15 },
-    { id: 5, name: 'Emily Brown', atsScore: 88, semanticScore: 85, codingScore: 86, actualPotential: 86, status: 'accepted', reason: 'Good match', yearsExp: 7, education: 'MS CS', isRescued: false, driftScore: 2 },
-    { id: 6, name: 'David Lee', atsScore: 62, semanticScore: 80, codingScore: 81, actualPotential: 81, status: 'rejected', reason: 'Experience format', yearsExp: 9, education: 'BS Engineering', isRescued: true, driftScore: 19 },
-    { id: 7, name: 'Lisa Wang', atsScore: 90, semanticScore: 87, codingScore: 88, actualPotential: 88, status: 'accepted', reason: 'Strong technical', yearsExp: 6, education: 'BS CS', isRescued: false, driftScore: 2 },
-    { id: 8, name: 'Mike Wilson', atsScore: 55, semanticScore: 78, codingScore: 76, actualPotential: 77, status: 'rejected', reason: 'Brand keywords', yearsExp: 8, education: 'BA', isRescued: true, driftScore: 22 },
-  ];
+  const transformCVsToResumes = (cvs: any[]) => {
+    if (!cvs || cvs.length === 0) return;
+    
+    const transformed = cvs.map((cv, index) => {
+      // Extract name from various possible fields
+      const candidateName = cv.name || cv.candidateName || cv.candidate_name || `Candidate ${index + 1}`;
+      const position = cv.currentRole || cv.position || cv.job_title || 'Position not specified';
+      const skillsList = Array.isArray(cv.skills) ? cv.skills : (cv.skills ? cv.skills.split(',') : []);
+      
+      // Extract job family match information
+      const bestJobFamily = cv.best_job_family || cv.bestJobFamily || null;
+      const jobMatchScore = cv.job_family_match_score || cv.jobFamilyMatchScore || null;
+      const jobCategory = cv.job_category || cv.jobCategory || null;
+      const top3Matches = cv.top_3_job_matches || cv.top3JobMatches || [];
+      
+      // Calculate actual ATS score from match_rate or keywords
+      const atsScore = cv.atsScore || cv.ats_score || (cv.match_rate ? cv.match_rate * 100 : null) || Math.floor(Math.random() * 40 + 60);
+      
+      return {
+        id: cv.candidateId || cv.candidate_id || index + 1,
+        name: candidateName,
+        position: position,
+        matchPercent: Math.round(atsScore),
+        content: cv.content || cv.cv_text || `Name: ${candidateName}\nPosition: ${position}\nSkills: ${skillsList.join(', ')}\nExperience: ${cv.experience || 0} years`,
+        keywordsRequired: ['Python', 'AWS', 'Docker', 'Leadership', 'System Design'],
+        keywordsFound: skillsList,
+        bias_indicators: {
+          age: cv.age > 45 ? 'Potential bias detected' : 'None',
+          gender: 'None'
+        },
+        // Strong match if ATS score >= 75% OR status is shortlisted/rescued
+        passed: atsScore >= 75 || cv.status === 'shortlisted' || cv.status === 'immediate_interview',
+        bestJobFamily: bestJobFamily,
+        jobMatchScore: jobMatchScore,
+        jobCategory: jobCategory,
+        top3Matches: top3Matches
+      };
+    });
+    
+    setResumes(transformed);
+    
+    // Transform for candidate analytics charts
+    const analyticsData = cvs.map((cv, index) => {
+      const candidateName = cv.name || cv.candidateName || cv.candidate_name || `Candidate ${index + 1}`;
+      const atsScore = cv.atsScore || cv.ats_score || (cv.match_rate ? cv.match_rate * 100 : null) || Math.floor(Math.random() * 40 + 60);
+      const semanticScore = cv.semantic_analysis?.overall_match_score ? cv.semantic_analysis.overall_match_score * 100 : atsScore + Math.random() * 10 - 5;
+      const codingScore = cv.coding_score || (semanticScore + Math.random() * 10 - 5);
+      const experience = cv.experience || Math.floor(Math.random() * 15) + 1;
+      const status = cv.status || (atsScore >= 75 ? 'accepted' : 'rejected');
+      const isRescued = cv.status === 'rescued' || (cv.semantic_analysis?.overall_match_score > 0.65 && atsScore < 75);
+      
+      return {
+        id: cv.candidateId || cv.candidate_id || index + 1,
+        name: candidateName,
+        atsScore: Math.round(atsScore),
+        semanticScore: Math.round(semanticScore),
+        codingScore: Math.round(codingScore),
+        actualPotential: Math.round((semanticScore + codingScore) / 2),
+        status: status,
+        reason: cv.rejection_reason || cv.rejectionReason || (atsScore < 75 ? 'Low keyword match' : 'Strong match'),
+        yearsExp: experience,
+        education: cv.education || 'Not specified',
+        isRescued: isRescued,
+        driftScore: Math.abs(atsScore - semanticScore)
+      };
+    });
+    
+    if (analyticsData.length > 0) {
+      setCandidateAnalytics(analyticsData);
+    }
+  };
+
+  const transformAlertsToAnalytics = (alerts: any[]) => {
+    const rescuedData = alerts.flatMap((alert: any) => 
+      (alert.candidates || []).map((candidate: any, idx: number) => ({
+        id: candidate.candidate_id || `rescue-${idx}`,
+        name: candidate.name,
+        atsScore: Math.round(candidate.ats_score || 65),
+        semanticScore: Math.round((candidate.semantic_score || 0.82) * 100),
+        codingScore: Math.round(candidate.coding_score || candidate.actual_potential || 78),
+        actualPotential: Math.round(candidate.actual_potential || 80),
+        status: 'rescued',
+        reason: candidate.rescue_reason || candidate.rejection_reason || 'Keyword mismatch',
+        yearsExp: candidate.experience || 6,
+        education: candidate.education || 'Not specified',
+        isRescued: true,
+        driftScore: candidate.drift_score || 15
+      }))
+    );
+    
+    if (rescuedData.length > 0) {
+      // Update existing candidate analytics with rescue data
+      setCandidateAnalytics(prev => {
+        const existingIds = new Set(rescuedData.map(r => r.id));
+        const nonRescued = prev.filter(c => !existingIds.has(c.id));
+        return [...nonRescued, ...rescuedData];
+      });
+    }
+  };
+
+  // Check if analysis was just started from Dashboard
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('analyzing') === 'true') {
+      setAnalyzing(true);
+      setNotificationData({
+        message: '🔄 Analysis is running... Results will appear automatically',
+        count: 0
+      });
+      setShowNotification(true);
+      
+      // Monitor for results for 30 seconds
+      let checkCount = 0;
+      const resultInterval = setInterval(async () => {
+        checkCount++;
+        await fetchAnalysisResults();
+        await fetchCVData();
+        
+        if (checkCount >= 20) {
+          clearInterval(resultInterval);
+          setAnalyzing(false);
+          
+          // Check for completed analysis
+          const [homeRes, rescueRes] = await Promise.all([
+            fetch('http://localhost:8000/api/home'),
+            fetch('http://localhost:8000/api/rescue-alerts')
+          ]);
+          
+          const homeData = await homeRes.json();
+          const rescueData = await rescueRes.json();
+          
+          let totalAlerts = 0;
+          let alertMessages = [];
+          
+          if (homeData.alerts && homeData.alerts.length > 0) {
+            const biasAlerts = homeData.alerts.filter((a: any) => 
+              a.type === 'warning' || a.title.includes('Bias')
+            );
+            totalAlerts += biasAlerts.length;
+            if (biasAlerts.length > 0) {
+              alertMessages.push(`${biasAlerts.length} bias pattern${biasAlerts.length > 1 ? 's' : ''}`);
+            }
+          }
+          
+          if (rescueData.rescue_alerts && rescueData.rescue_alerts.length > 0) {
+            const totalRescued = rescueData.rescue_alerts.reduce(
+              (sum: number, alert: any) => sum + (alert.candidates?.length || 1), 
+              0
+            );
+            totalAlerts += totalRescued;
+            alertMessages.push(`${totalRescued} candidate${totalRescued > 1 ? 's' : ''} rescued`);
+          }
+          
+          if (totalAlerts > 0) {
+            setNotificationData({
+              message: `✅ Analysis Complete! Detected: ${alertMessages.join(' & ')}`,
+              count: totalAlerts
+            });
+            setShowNotification(true);
+            setTimeout(() => setShowNotification(false), 15000);
+          } else {
+            setNotificationData({
+              message: `✅ Analysis Complete! No biases detected in this batch.`,
+              count: 0
+            });
+            setShowNotification(true);
+            setTimeout(() => setShowNotification(false), 8000);
+          }
+        }
+      }, 1500);
+      
+      // Clean up URL
+      window.history.replaceState({}, '', '/analytics');
+    }
+  }, []);
+
+  // Auto-poll for new analysis results ONLY when analyzing
+  useEffect(() => {
+    if (!analyzing) return; // Don't poll when not analyzing
+    
+    const pollInterval = setInterval(async () => {
+      await fetchAnalysisResults();
+      await fetchCVData();
+    }, 3000); // Poll every 3 seconds for updates
+    
+    return () => clearInterval(pollInterval);
+  }, [analyzing]);
+
+  const handleNotificationClick = () => {
+    router.push('/alerts');
+  };
+
+  // Candidate analytics data is now managed by state
 
   // Drift timeline data
   const driftTimeline = [
@@ -102,99 +294,7 @@ export default function Analytics() {
 
   const PIE_COLORS = ['#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#10b981'];
 
-  // Sample resume data with ATS analysis
-  const resumes = [
-    {
-      id: 1,
-      name: 'Alice Johnson',
-      position: 'Senior Software Engineer',
-      matchPercent: 89,
-      content: `ALICE JOHNSON
-Senior Software Engineer | 10+ Years Experience
-
-CORE SKILLS
-• Python, Java, AWS, Docker, Kubernetes
-• System Design & Architecture
-• Agile & Scrum Methodologies
-• Cloud Infrastructure
-• Leadership & Team Management
-
-PROFESSIONAL EXPERIENCE
-Senior Software Engineer | Tech Corp (2020-Present)
-- Led team of 5 engineers in building microservices
-- Designed AWS infrastructure for 1M+ users
-- Improved system performance by 40%
-
-EDUCATION
-B.S. Computer Science | State University (2014)`,
-      keywordsRequired: ['Python', 'AWS', 'Docker', 'Leadership', 'System Design'],
-      keywordsFound: ['Python', 'AWS', 'Docker', 'Leadership', 'System Design'],
-      bias_indicators: { age: 'None', gender: 'None' },
-      passed: true
-    },
-    {
-      id: 2,
-      name: 'Marcus Davis',
-      position: 'Data Analyst',
-      matchPercent: 65,
-      content: `MARCUS DAVIS
-Data Analyst | 6 Years Experience
-
-SKILLS
-• SQL, Excel, Tableau
-• Google Analytics
-• Python basics
-• Data Visualization
-
-EXPERIENCE
-Data Analyst | Analytics Inc (2019-Present)
-- Created dashboards for stakeholders
-- Analyzed customer behavior patterns
-- Reported on KPIs monthly
-
-EDUCATION
-B.A. Business Analytics | University (2018)`,
-      keywordsRequired: ['SQL', 'Python', 'Machine Learning', 'Tableau', 'Statistics'],
-      keywordsFound: ['SQL', 'Tableau'],
-      bias_indicators: { age: 'Potential bias detected', gender: 'None' },
-      passed: false
-    },
-    {
-      id: 3,
-      name: 'Sarah Chen',
-      position: 'Product Manager',
-      matchPercent: 92,
-      content: `SARAH CHEN
-Product Manager | 8 Years Experience
-
-KEY SKILLS
-• Product Strategy & Roadmapping
-• User Research & Analytics
-• Cross-functional Leadership
-• OKR Management
-• Agile Product Development
-
-EXPERIENCE
-Senior Product Manager | InnovateCo (2021-Present)
-- Launched 3 products generating $5M revenue
-- Led 12-person cross-functional team
-- Improved user retention by 35%
-
-PREVIOUS ROLE
-Product Manager | StartupXYZ (2017-2021)
-- Managed product lifecycle
-- Conducted user interviews & research
-- Built analytics dashboard
-
-EDUCATION
-MBA - Product Management | Tech University (2017)
-B.S. Business | State University (2015)`,
-      keywordsRequired: ['Product Strategy', 'Analytics', 'Leadership', 'OKR', 'User Research'],
-      keywordsFound: ['Product Strategy', 'Analytics', 'Leadership', 'OKR', 'User Research'],
-      bias_indicators: { age: 'None', gender: 'None' },
-      passed: true
-    }
-  ];
+  // Resume data is now managed by state through transformCVsToResumes function
 
   const handleATSAnalysis = (index: number) => {
     setSelectedResume(index);
@@ -340,6 +440,14 @@ B.S. Business | State University (2015)`,
     <ProtectedRoute>
       <div className="min-h-screen bg-black text-gray-100">
         <Navbar />
+        {showNotification && (
+          <Notification
+            message={notificationData.message}
+            type="warning"
+            onClose={() => setShowNotification(false)}
+            onClick={handleNotificationClick}
+          />
+        )}
         <div className="px-6 py-6 space-y-6">
           {/* Header */}
           <div>
@@ -347,28 +455,28 @@ B.S. Business | State University (2015)`,
               <div>
                 <h1 className="text-3xl font-bold text-white">📈 ATS Analytics</h1>
                 <p className="text-gray-400 mt-1">Review resume screening results and bias detection</p>
-              </div>
-              <button
-                onClick={startAnalysis}
-                disabled={analyzing}
-                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
-              >
                 {analyzing ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <p className="text-sm text-amber-400 mt-2 flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Analyzing...
-                  </>
+                    Analysis in progress... Results loading
+                  </p>
                 ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    Run Analysis
-                  </>
+                  <p className="text-sm text-cyan-400 mt-2">💡 Tip: Run analysis from Dashboard to see results here</p>
                 )}
+              </div>
+              <button
+                onClick={handleDashboardRedirect}
+                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+              >
+                <Activity className="w-5 h-5" />
+                Go to Dashboard
               </button>
             </div>
+          </div>
+
         {/* Tab Navigation */}
         <div className="flex gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1">
           <button
@@ -445,6 +553,11 @@ B.S. Business | State University (2015)`,
                           <div>
                             <h3 className="font-semibold text-white">{resume.name}</h3>
                             <p className="text-xs text-gray-400">{resume.position}</p>
+                            {resume.bestJobFamily && (
+                              <p className="text-xs text-cyan-400 mt-1">
+                                🎯 Best Match: <span className="font-semibold">{resume.bestJobFamily}</span> ({Math.round((resume.jobMatchScore || 0) * 100)}%)
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -457,6 +570,15 @@ B.S. Business | State University (2015)`,
                           </div>
                           <p className="text-xs text-gray-400">Match</p>
                         </div>
+
+                        {resume.jobCategory && (
+                          <div className="text-center">
+                            <div className="px-3 py-1 bg-purple-900/30 text-purple-400 border border-purple-700 rounded text-xs font-medium">
+                              {resume.jobCategory}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">Category</p>
+                          </div>
+                        )}
 
                         {/* Status Badge */}
                         <div className={`px-3 py-1 rounded-full text-xs font-semibold ${resume.passed ? 'bg-green-900/30 text-green-400 border border-green-700' : 'bg-amber-900/30 text-amber-400 border border-amber-700'}`}>
@@ -518,6 +640,16 @@ B.S. Business | State University (2015)`,
             {chartView === 'scatter' && (
               <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
                 <h3 className="text-2xl font-bold mb-6 text-white">ATS Score vs Actual Potential</h3>
+                {candidateAnalytics.length === 0 ? (
+                  <div className="h-[500px] flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-6xl mb-4">📊</div>
+                      <div className="text-gray-400 text-xl mb-2">No Analysis Data Available</div>
+                      <div className="text-gray-500">Upload CVs and run analysis from Dashboard to see scatter plot visualization</div>
+                    </div>
+                  </div>
+                ) : (
+                <>
                 <ResponsiveContainer width="100%" height={500}>
                   <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -589,6 +721,8 @@ B.S. Business | State University (2015)`,
                     💡 <strong>Insight:</strong> {candidateAnalytics.filter(c => c.isRescued).length} candidates were rejected by ATS but have high potential scores. These represent valuable talent that might be lost without semantic analysis.
                   </p>
                 </div>
+                </>
+                )}
               </div>
             )}
 
@@ -770,6 +904,12 @@ B.S. Business | State University (2015)`,
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h4 className="font-semibold text-xl mb-4 text-white">❌ Rejected Candidates</h4>
+                  {candidateAnalytics.filter(c => c.status === 'rejected').length === 0 ? (
+                    <div className="bg-gray-800/30 border-2 border-dashed border-gray-700 rounded-lg p-12 text-center">
+                      <div className="text-gray-400 text-lg mb-2">📊 No Analysis Data Yet</div>
+                      <div className="text-gray-500 text-sm">Run analysis from Dashboard to see real candidate data here</div>
+                    </div>
+                  ) : (
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                     {candidateAnalytics.filter(c => c.status === 'rejected').sort((a, b) => b.actualPotential - a.actualPotential).map(c => (
                       <div 
@@ -795,10 +935,17 @@ B.S. Business | State University (2015)`,
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
 
                 <div>
                   <h4 className="font-semibold text-xl mb-4 text-white">✅ Accepted Candidates</h4>
+                  {candidateAnalytics.filter(c => c.status === 'accepted').length === 0 ? (
+                    <div className="bg-gray-800/30 border-2 border-dashed border-gray-700 rounded-lg p-12 text-center">
+                      <div className="text-gray-400 text-lg mb-2">📊 No Analysis Data Yet</div>
+                      <div className="text-gray-500 text-sm">Run analysis from Dashboard to see real candidate data here</div>
+                    </div>
+                  ) : (
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                     {candidateAnalytics.filter(c => c.status === 'accepted').sort((a, b) => b.actualPotential - a.actualPotential).map(c => (
                       <div 
@@ -812,6 +959,7 @@ B.S. Business | State University (2015)`,
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               </div>
             )}

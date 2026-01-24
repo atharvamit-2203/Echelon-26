@@ -1,0 +1,68 @@
+SOPHIA RODRIGUEZ
+QA Engineer / Test Automation Specialist
+Email: sophia.rodriguez@qa.tech | Phone: (555) 234-5678
+
+PROFESSIONAL SUMMARY
+QA Engineer with 6 years of experience in manual and automated testing. Expert in test automation frameworks, CI/CD integration, and ensuring software quality. Strong advocate for quality-first development practices.
+
+TECHNICAL SKILLS
+• Automation: Selenium, Cypress, Playwright, Appium
+• Languages: Python, JavaScript, Java, TypeScript
+• Frameworks: Pytest, Jest, JUnit, TestNG, Cucumber
+• API Testing: Postman, REST Assured, SoapUI
+• Performance: JMeter, Gatling, Locust
+• CI/CD: Jenkins, GitHub Actions, GitLab CI
+• Tools: JIRA, TestRail, Allure, BrowserStack
+• Mobile Testing: Appium, XCTest, Espresso
+
+PROFESSIONAL EXPERIENCE
+
+Senior QA Engineer | Quality Software Corp | 2022 - Present
+• Lead test automation efforts for microservices architecture
+• Built comprehensive test automation framework using Cypress and Playwright
+• Increased test coverage from 45% to 85% through automation
+• Integrated automated tests into CI/CD pipelines
+• Performed API testing for 20+ microservices
+• Mentored junior QA engineers on automation best practices
+• Reduced regression testing time from 2 days to 4 hours
+
+QA Automation Engineer | TechTest Solutions | 2020 - 2022
+• Developed automated test suites using Selenium and Python
+• Created API test automation using Pytest and requests library
+• Performed load testing ensuring system handles 10K concurrent users
+• Implemented BDD framework using Cucumber
+• Collaborated with developers on testability improvements
+
+QA Engineer | Software Development Inc. | 2018 - 2020
+• Executed manual test cases and reported bugs in JIRA
+• Created detailed test plans and test cases
+• Performed regression, smoke, and exploratory testing
+• Participated in Agile ceremonies and sprint planning
+• Started learning test automation with Selenium
+
+EDUCATION
+Bachelor of Science in Computer Science
+University of Texas at Dallas | 2014 - 2018
+
+CERTIFICATIONS
+• ISTQB Certified Tester - Advanced Level
+• Selenium WebDriver with Python Certificate
+• AWS Certified Cloud Practitioner
+
+ACHIEVEMENTS
+• Built test automation framework adopted by 3 teams (30+ engineers)
+• Discovered critical production bugs saving company $500K+
+• Improved deployment confidence through comprehensive test coverage
+• Reduced production defects by 60% through better testing strategies
+• Presented at testing conference on "Modern Test Automation Practices"
+
+PROJECTS & CONTRIBUTIONS
+• Contributed to Cypress and Playwright open-source communities
+• Created popular test automation tutorial series (5K+ views on YouTube)
+• Built reusable test utilities library for company use
+
+ADDITIONAL SKILLS
+• Visual Regression Testing (Percy, Chromatic)
+• Accessibility Testing (axe, WAVE)
+• Security Testing basics
+• Docker and Kubernetes for test environments

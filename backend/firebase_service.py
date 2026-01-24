@@ -20,6 +20,9 @@ db = firestore.client()
 bucket = storage.bucket()
 
 class FirebaseService:
+    db = db  # Class attribute for external access
+    bucket = bucket  # Class attribute for external access
+    
     @staticmethod
     def get_metrics():
         doc_ref = db.collection('metrics').document('dashboard')

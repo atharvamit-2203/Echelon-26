@@ -1,0 +1,82 @@
+JESSICA TAYLOR
+UX/UI Designer
+Email: jessica.taylor@uxdesign.co | Phone: (555) 456-7890
+Portfolio: jessicataylorux.com
+
+ABOUT ME
+UX/UI Designer with 5 years of experience creating intuitive, user-centered digital experiences. Passionate about solving complex problems through thoughtful design. Strong collaboration skills working with product managers, developers, and stakeholders.
+
+DESIGN SKILLS
+• Design Tools: Figma, Adobe XD, Sketch, InVision, Adobe Creative Suite
+• Prototyping: High-fidelity prototypes, Interactive prototypes, Animations
+• Research: User Interviews, Usability Testing, A/B Testing, Surveys
+• Methods: Design Thinking, User-Centered Design, Design Systems
+• UI Design: Typography, Color Theory, Layout, Responsive Design
+• Accessibility: WCAG Guidelines, Inclusive Design
+• Collaboration: Miro, FigJam, Notion, Slack
+• Technical: HTML, CSS basics, Design-to-Code handoff
+
+PROFESSIONAL EXPERIENCE
+
+Senior UX/UI Designer | Digital Products Inc. | 2022 - Present
+• Lead design for SaaS platform used by 100K+ users
+• Conduct user research and translate insights into design solutions
+• Created comprehensive design system improving consistency across products
+• Run usability tests and iterate based on user feedback
+• Collaborate with product and engineering in Agile environment
+• Improved user task completion rate by 45% through redesign
+• Mentor 2 junior designers on UX best practices
+
+UX/UI Designer | Creative Tech Studio | 2020 - 2022
+• Designed web and mobile applications from concept to launch
+• Created user flows, wireframes, and high-fidelity mockups
+• Conducted competitive analysis and user research
+• Designed responsive interfaces for desktop, tablet, and mobile
+• Worked with developers ensuring design implementation accuracy
+• Presented design rationale to stakeholders
+
+Junior UX Designer | Design Agency | 2019 - 2020
+• Assisted senior designers with research and design tasks
+• Created wireframes and prototypes in Figma
+• Participated in brainstorming and ideation sessions
+• Conducted user interviews and synthesized findings
+• Learned industry best practices and design methodologies
+
+EDUCATION
+Bachelor of Fine Arts in Graphic Design
+Rhode Island School of Design | 2015 - 2019
+
+UX Design Bootcamp
+General Assembly | 2018
+
+PROJECTS
+
+E-Commerce Platform Redesign
+• Increased conversion rate by 35% through improved checkout flow
+• Conducted 20+ user interviews and usability tests
+• Created design system with 50+ reusable components
+
+Healthcare Patient Portal
+• Designed accessible interface meeting WCAG 2.1 AA standards
+• Simplified complex medical information for better understanding
+• Improved patient satisfaction score from 3.2 to 4.6
+
+Mobile Banking App
+• Designed intuitive mobile experience for financial management
+• Reduced time to complete transactions by 60%
+• Implemented biometric authentication and security features
+
+CERTIFICATIONS
+• Google UX Design Professional Certificate
+• Interaction Design Specialization (Coursera)
+• Accessibility for Web Design (LinkedIn Learning)
+
+ACHIEVEMENTS
+• Design work featured in Awwwards and Dribbble
+• Won "Best User Experience" at Product Design Awards 2023
+• 10K+ followers on Dribbble showcasing design work
+
+SPEAKING & WRITING
+• Speaker at UX Conference 2023 - "Designing for Accessibility"
+• Published articles on Medium about UX design (20K+ views)
+• Guest lecturer at local university UX program

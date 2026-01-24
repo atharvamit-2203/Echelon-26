@@ -1,0 +1,86 @@
+AMANDA FOSTER
+Blockchain Developer / Web3 Engineer
+Email: amanda.foster@web3.dev | Phone: (555) 678-9012
+GitHub: github.com/amandafoster
+
+SUMMARY
+Blockchain Developer with 4 years of experience building decentralized applications and smart contracts. Specialized in Ethereum, Solidity, and Web3 technologies. Passionate about the future of decentralized finance and blockchain innovation.
+
+TECHNICAL SKILLS
+• Blockchain: Ethereum, Polygon, Binance Smart Chain, Solana
+• Smart Contracts: Solidity, Rust, Vyper
+• Web3: Web3.js, Ethers.js, Hardhat, Truffle, Remix
+• Frontend: React, Next.js, TypeScript, JavaScript
+• Backend: Node.js, Python, Express.js
+• Tools: MetaMask, IPFS, The Graph, Chainlink Oracles
+• Testing: Mocha, Chai, Waffle, Foundry
+• Security: Smart Contract Auditing, OpenZeppelin libraries
+
+PROFESSIONAL EXPERIENCE
+
+Blockchain Developer | DeFi Protocol Inc. | 2022 - Present
+• Develop and deploy smart contracts for DeFi applications ($50M+ TVL)
+• Build dApps using React and Web3.js for blockchain interaction
+• Implement tokenomics and liquidity pool mechanisms
+• Conduct security audits and fix vulnerabilities in smart contracts
+• Integrate Chainlink oracles for real-time price feeds
+• Optimize gas costs reducing transaction fees by 40%
+
+Web3 Engineer | NFT Marketplace Co. | 2021 - 2022
+• Built NFT minting and trading platform on Ethereum
+• Developed ERC-721 and ERC-1155 token contracts
+• Created marketplace smart contracts with royalty mechanisms
+• Integrated IPFS for decentralized metadata storage
+• Built responsive frontend with React and Ethers.js
+• Platform facilitated $2M+ in NFT sales
+
+Blockchain Developer (Contract) | Various Startups | 2020 - 2021
+• Developed smart contracts for token launches and ICOs
+• Built Web3 integrations for existing web applications
+• Provided blockchain consulting for startups
+• Participated in hackathons winning 2 blockchain challenges
+
+EDUCATION
+Bachelor of Science in Computer Science
+University of Washington | 2016 - 2020
+Focus: Cryptography and Distributed Systems
+
+PROJECTS
+
+Decentralized Exchange (DEX)
+• Built AMM-based DEX using Solidity smart contracts
+• Implemented liquidity pools and token swaps
+• Frontend with React and Web3 wallet integration
+
+DAO Governance Platform
+• Created governance smart contracts for DAO voting
+• Token-weighted voting and proposal systems
+• Time-locked treasury management
+
+Cross-Chain Bridge
+• Developed bridge protocol connecting Ethereum and Polygon
+• Asset transfer with security mechanisms
+• Reduced transfer costs by 90%
+
+CERTIFICATIONS
+• Ethereum Developer Bootcamp (ConsenSys Academy)
+• Certified Blockchain Developer (Blockchain Council)
+• Smart Contract Security Auditor Course
+
+ACHIEVEMENTS
+• Deployed 20+ smart contracts on mainnet (0 security incidents)
+• Audited smart contracts protecting $10M+ in assets
+• Won ETHGlobal Hackathon - Best DeFi Project 2023
+• Published research on Layer 2 scaling solutions
+
+COMMUNITY INVOLVEMENT
+• Active member of Ethereum developer community
+• Speaker at Web3 conferences and meetups
+• Contributing to Web3 education through tutorials
+• Smart contract auditor for early-stage projects
+
+INTERESTS
+• Decentralized finance (DeFi) innovation
+• Layer 2 scaling solutions
+• Zero-knowledge proofs and privacy
+• DAO governance mechanisms

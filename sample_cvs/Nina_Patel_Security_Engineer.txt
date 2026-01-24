@@ -1,0 +1,64 @@
+NINA PATEL
+Security Engineer / Cybersecurity Specialist
+Email: nina.patel@seceng.com | Phone: (555) 012-3456
+
+PROFESSIONAL PROFILE
+Cybersecurity professional with 5 years of experience in application security, penetration testing, and security architecture. Expertise in identifying vulnerabilities and implementing robust security solutions for cloud-native applications.
+
+SECURITY SKILLS
+• Application Security: OWASP Top 10, Secure Coding, Code Review
+• Network Security: Firewalls, IDS/IPS, VPN, Network Segmentation
+• Cloud Security: AWS Security, Azure Security, IAM, Security Groups
+• Testing: Penetration Testing, Vulnerability Assessment, Security Audits
+• Tools: Burp Suite, Metasploit, Nmap, Wireshark, SIEM (Splunk)
+• Compliance: SOC 2, ISO 27001, GDPR, HIPAA
+• Programming: Python, Bash, PowerShell, JavaScript
+• DevSecOps: Security in CI/CD, Container Security, IaC Security
+
+PROFESSIONAL EXPERIENCE
+
+Security Engineer | CloudSecure Technologies | 2022 - Present
+• Conducted security assessments and penetration testing for web applications
+• Implemented security controls in AWS infrastructure (WAF, GuardDuty, Security Hub)
+• Developed security automation scripts using Python
+• Performed code reviews identifying critical security vulnerabilities
+• Created security awareness training for developers
+• Responded to security incidents and conducted root cause analysis
+
+Application Security Engineer | FinTech Solutions | 2020 - 2022
+• Integrated security tools into CI/CD pipeline (SAST, DAST, SCA)
+• Identified and remediated 200+ security vulnerabilities
+• Worked with development teams on secure coding practices
+• Implemented authentication and authorization frameworks
+• Conducted threat modeling for new features
+
+Security Analyst | Enterprise Corp | 2019 - 2020
+• Monitored security events using SIEM tools
+• Analyzed logs and investigated security alerts
+• Assisted with incident response and forensics
+• Maintained security documentation and policies
+
+EDUCATION
+Master of Science in Cybersecurity
+Georgia Tech | 2017 - 2019
+
+Bachelor of Science in Computer Science
+University of Illinois | 2013 - 2017
+
+CERTIFICATIONS
+• Certified Ethical Hacker (CEH)
+• Offensive Security Certified Professional (OSCP)
+• AWS Certified Security - Specialty
+• CISSP (In Progress)
+• CompTIA Security+
+
+ACHIEVEMENTS
+• Discovered critical 0-day vulnerability in popular open-source library
+• Reduced security vulnerabilities by 75% through automated scanning
+• Led security audit resulting in SOC 2 Type II certification
+• Published security research at DEF CON 2023
+
+ADDITIONAL SKILLS
+• Bug Bounty Hunting - $20K+ earnings on HackerOne
+• CTF Competitor - Multiple top-10 finishes
+• Security Blogging - 5K+ followers

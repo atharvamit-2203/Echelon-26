@@ -1,18 +1,23 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { FileText, AlertTriangle, CheckCircle, XCircle, Clock, Activity, Download, Eye } from 'lucide-react';
 import BatchAnalysisPanel from '../../components/BatchAnalysisPanel';
 import RecruiterUploadPanel from '../../components/RecruiterUploadPanel';
 import Navbar from '../../components/Navbar';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import Notification from '../../components/Notification';
 
 const Dashboard = () => {
+  const router = useRouter();
   const [selectedResume, setSelectedResume] = useState(null);
   const [pendingResumes, setPendingResumes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [homeData, setHomeData] = useState<any>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationData, setNotificationData] = useState<{ message: string; count: number }>({ message: '', count: 0 });
 
   useEffect(() => {
     fetchCVs();
@@ -31,19 +36,22 @@ const Dashboard = () => {
 
   const startAnalysis = async () => {
     setAnalyzing(true);
+    setShowNotification(false);
+    
     try {
       const response = await fetch('http://localhost:8000/api/start-batch-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
       
+      // Redirect to analytics page to view results
       if (response.ok) {
-        alert('Analysis started! Check Analytics page for results.');
+        // Small delay to show user that analysis started
         setTimeout(() => {
-          fetchCVs();
-          fetchHomeData();
-          setAnalyzing(false);
-        }, 5000);
+          router.push('/analytics?analyzing=true');
+        }, 500);
+      } else {
+        setAnalyzing(false);
       }
     } catch (error) {
       console.error('Error starting analysis:', error);
@@ -93,6 +101,15 @@ const Dashboard = () => {
     <ProtectedRoute>
       <div className="min-h-screen bg-black text-gray-100">
         <Navbar />
+        {showNotification && (
+          <Notification
+            message={notificationData.message}
+            type="warning"
+            onClose={() => setShowNotification(false)}
+            onClick={() => router.push('/alerts')}
+            duration={10000}
+          />
+        )}
         <div className="px-6 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">

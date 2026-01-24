@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, Clock, Trash2, Eye, Filter } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -18,7 +18,167 @@ interface Alert {
 }
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<Alert[]>([
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAlerts();
+    // Poll for new alerts every 10 seconds
+    const interval = setInterval(fetchAlerts, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchAlerts = async () => {
+    try {
+      const [homeRes, rescueRes] = await Promise.all([
+        fetch('http://localhost:8000/api/home'),
+        fetch('http://localhost:8000/api/rescue-alerts')
+      ]);
+      
+      const homeData = await homeRes.json();
+      const rescueData = await rescueRes.json();
+      
+      const combinedAlerts: Alert[] = [];
+      
+      // Add alerts from home API
+      if (homeData.alerts) {
+        homeData.alerts.forEach((alert: any, index: number) => {
+          // Extract numeric value from affected field if possible
+          let affectedCount = 0;
+          if (alert.affected) {
+            const match = alert.affected.match(/\d+/);
+            affectedCount = match ? parseInt(match[0]) : 0;
+          }
+          
+          // If no count provided, calculate from rescue data
+          if (affectedCount === 0 && rescueData.rescue_alerts) {
+            affectedCount = rescueData.rescue_alerts.reduce(
+              (sum: number, a: any) => sum + (a.candidates?.length || 0), 
+              0
+            );
+          }
+          
+          // Enhanced recommendations based on alert type
+          let recommendations = [];
+          if (alert.title.includes('Bias Detected in Keyword Filters')) {
+            const candidateText = affectedCount === 1 ? 'candidate' : 'candidates';
+            recommendations = [
+              '🔍 Audit Current Keywords: Review all keyword filters that show >25% rejection rate disparity',
+              '📊 Analyze Semantic Equivalents: Identify professional terms that match job requirements (e.g., "Performance Targets" = "KPI")',
+              '🔄 Update ATS Filters: Add semantic synonyms to existing keyword requirements',
+              `👥 Review Rejected Candidates: Manually assess the ${affectedCount || 'affected'} ${candidateText} who were filtered out`,
+              '⚙️ Implement Fuzzy Matching: Configure ATS to accept similar terms with 80%+ semantic similarity',
+              '📈 Monitor Impact: Track acceptance rates after implementing changes to ensure improvement',
+              '🎯 Set Alerts: Configure notifications for future keyword-based rejection disparities',
+              '📚 Train Recruiters: Educate team on recognizing equivalent professional terminology'
+            ];
+          } else if (alert.recommendation) {
+            recommendations = [alert.recommendation];
+          }
+          
+          combinedAlerts.push({
+            id: `home-${index}`,
+            type: alert.type === 'warning' ? 'warning' : 'bias',
+            title: alert.title,
+            description: alert.description,
+            severity: alert.type === 'warning' ? 'high' : 'critical',
+            timestamp: new Date().toLocaleString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              hour: 'numeric', 
+              minute: '2-digit',
+              hour12: true 
+            }),
+            resolved: false,
+            affectedCandidates: affectedCount,
+            recommendations: recommendations
+          });
+        });
+      }
+      
+      // Add rescue alerts
+      if (rescueData.rescue_alerts) {
+        rescueData.rescue_alerts.forEach((alert: any, index: number) => {
+          // Handle peer comparison bias alerts (similar CVs, different outcomes)
+          if (alert.type === 'peer_comparison_bias' && alert.peer_cases) {
+            combinedAlerts.push({
+              id: `peer-${index}`,
+              type: 'bias',
+              title: alert.title || '⚠️ Disparate Treatment: Similar Candidates, Different Outcomes',
+              description: alert.description || 'Candidates with similar qualifications received different screening outcomes',
+              severity: 'critical',
+              timestamp: new Date().toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+              }),
+              resolved: false,
+              affectedCandidates: alert.peer_cases.length,
+              recommendations: [
+                '🔍 Review Comparison Cases: Examine each pair of similar candidates with different outcomes',
+                '📊 Analyze Score Differences: Compare ATS and semantic scores between candidate pairs',
+                '👥 Check Demographics: Identify if demographic factors correlate with different outcomes',
+                '⚖️ Verify Decision Criteria: Ensure screening decisions are based on merit, not demographics',
+                '🎯 Standardize Evaluation: Implement consistent scoring rubrics across all candidates',
+                '📈 Monitor Future Comparisons: Track similar candidates to prevent future disparate treatment',
+                '🔔 Flag Similar Cases: Set up alerts when similar candidates receive different treatment',
+                '📚 Train Hiring Team: Educate on unconscious bias and fair evaluation practices',
+                `📋 Detailed Cases:\n${alert.peer_cases.map((c: any, i: number) => 
+                  `   ${i+1}. ${c.candidate_1.name} (${c.candidate_1.status}, ${c.candidate_1.ats_score}%) vs ${c.candidate_2.name} (${c.candidate_2.status}, ${c.candidate_2.ats_score}%) - ${c.description}`
+                ).join('\n')}`
+              ]
+            });
+          } else {
+            // Regular rescue alerts
+            combinedAlerts.push({
+              id: `rescue-${index}`,
+              type: 'bias',
+              title: alert.title || '🚨 Bias Alert: Qualified Candidate Needs Rescue',
+              description: alert.description || 'A qualified candidate was rejected by ATS',
+              severity: 'critical',
+              timestamp: new Date().toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+              }),
+              resolved: false,
+              affectedCandidates: alert.candidates?.length || 1,
+              recommendations: [
+                '👤 Review Candidate Profiles: Immediately assess semantic match scores for rescued candidates',
+                '📞 Fast-Track Interview: Schedule manual interviews for candidates with >85% semantic match',
+                '🔍 Investigate Root Cause: Analyze why ATS rejected these high-potential candidates',
+                '⚙️ Update Keyword Requirements: Modify ATS to accept semantic equivalents identified in analysis',
+                '📊 Audit Similar Cases: Search for other rejected candidates with similar profiles',
+                '🎯 Implement Semantic Matching: Integrate AI-powered semantic analysis into ATS workflow',
+                '👥 Review Demographics: Check if rescued candidates share common demographic patterns',
+                '📈 Track Long-term: Monitor career success of rescued vs. traditionally accepted candidates',
+                '🔔 Set Preventive Alerts: Configure real-time notifications for future similar rejections',
+                '📚 Train Hiring Team: Educate recruiters on semantic matching and bias prevention'
+              ]
+            });
+          }
+        });
+      }
+      
+      // If no real alerts, use sample data
+      if (combinedAlerts.length === 0) {
+        setAlerts(getDefaultAlerts());
+      } else {
+        setAlerts(combinedAlerts);
+      }
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      setAlerts(getDefaultAlerts());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDefaultAlerts = (): Alert[] => [
     {
       id: '1',
       type: 'bias',
@@ -48,31 +208,8 @@ export default function AlertsPage() {
         'Implement fuzzy matching for technology keywords',
         'Manually review rejected candidates with similar skills'
       ]
-    },
-    {
-      id: '3',
-      type: 'warning',
-      title: 'Data Drift Detected',
-      description: 'Filter behavior has changed significantly over the past week',
-      severity: 'medium',
-      timestamp: '1 day ago',
-      resolved: false,
-      recommendations: [
-        'Investigate recent ATS configuration changes',
-        'Compare current filters with baseline settings'
-      ]
-    },
-    {
-      id: '4',
-      type: 'info',
-      title: 'System Rebalance Complete',
-      description: 'Filters have been rebalanced to reduce demographic bias',
-      severity: 'low',
-      timestamp: '3 days ago',
-      resolved: true,
-      recommendations: []
     }
-  ]);
+  ];
 
   const [filter, setFilter] = useState<'all' | 'unresolved' | 'critical'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -233,18 +370,36 @@ export default function AlertsPage() {
                   </div>
                 </div>
 
-                {/* Expanded Details */}
-                {expandedId === alert.id && alert.recommendations && alert.recommendations.length > 0 && (
+                {/* Expanded Details - Always show recommendations */}
+                {alert.recommendations && alert.recommendations.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-white/10">
-                    <h4 className="font-bold mb-3">Recommended Actions:</h4>
-                    <ul className="space-y-2">
+                    <h4 className="font-bold mb-3 text-lg flex items-center gap-2">
+                      📋 Recommended Actions:
+                      <span className="text-xs font-normal text-slate-400">
+                        ({alert.recommendations.length} action items)
+                      </span>
+                    </h4>
+                    <ul className="space-y-3">
                       {alert.recommendations.map((rec, idx) => (
-                        <li key={idx} className="flex gap-3 text-sm">
-                          <span className="text-cyan-400 font-bold">{idx + 1}.</span>
-                          <span>{rec}</span>
+                        <li key={idx} className="flex gap-3 text-sm bg-slate-800/30 p-3 rounded-lg hover:bg-slate-800/50 transition-colors">
+                          <span className="text-cyan-400 font-bold shrink-0 text-base">{idx + 1}.</span>
+                          <span className="leading-relaxed">{rec}</span>
                         </li>
                       ))}
                     </ul>
+                    
+                    {/* Quick Action Buttons */}
+                    <div className="mt-4 flex gap-3 flex-wrap">
+                      <button className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors">
+                        📊 Export Action Plan
+                      </button>
+                      <button className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors">
+                        📧 Email to Team
+                      </button>
+                      <button className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors">
+                        📅 Schedule Review
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

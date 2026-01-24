@@ -1,0 +1,55 @@
+DAVID KIM
+Backend Engineer
+Email: david.kim@backend.dev | Phone: (555) 567-8901
+
+SUMMARY
+Backend Engineer with 7 years of experience designing and building scalable APIs, microservices, and distributed systems. Expert in Java, Spring Boot, and database optimization.
+
+TECHNICAL EXPERTISE
+• Languages: Java, Python, Go, Kotlin, SQL
+• Frameworks: Spring Boot, Spring Cloud, Django, Express.js
+• Microservices: REST APIs, GraphQL, gRPC, Message Queues
+• Databases: PostgreSQL, MySQL, MongoDB, Cassandra, Redis
+• Cloud: AWS (Lambda, API Gateway, SQS, SNS), Azure
+• Tools: Maven, Gradle, Docker, Kubernetes, Kafka
+• Testing: JUnit, Mockito, Integration Testing, Load Testing
+
+PROFESSIONAL EXPERIENCE
+
+Senior Backend Engineer | Enterprise Tech Corp | 2021 - Present
+• Designed microservices architecture serving 10M+ daily active users
+• Built RESTful APIs with Spring Boot handling 50K requests/second
+• Implemented message-driven architecture using Apache Kafka
+• Optimized database queries reducing response time by 60%
+• Led backend team of 5 engineers through Agile sprints
+
+Backend Engineer | Cloud Services Inc. | 2018 - 2021
+• Developed scalable APIs using Java Spring Framework
+• Integrated third-party payment gateways and authentication services
+• Implemented caching strategies with Redis improving performance
+• Created comprehensive API documentation using Swagger
+• Set up monitoring and logging with ELK Stack
+
+Software Developer | Tech Startups | 2017 - 2018
+• Built backend services for mobile applications
+• Designed database schemas and wrote complex SQL queries
+• Implemented JWT-based authentication and authorization
+• Participated in code reviews and test-driven development
+
+EDUCATION
+Master of Science in Computer Engineering
+Carnegie Mellon University | 2015 - 2017
+
+Bachelor of Engineering in Software Engineering
+Seoul National University | 2011 - 2015
+
+CERTIFICATIONS
+• Oracle Certified Professional: Java SE Developer
+• AWS Certified Solutions Architect
+• Spring Professional Certification
+
+ACHIEVEMENTS
+• Reduced API latency from 500ms to 80ms through optimization
+• Handled Black Friday traffic surge of 100K concurrent users
+• Mentored 10+ junior developers in backend development
+• Published technical blogs on microservices architecture (50K+ views)

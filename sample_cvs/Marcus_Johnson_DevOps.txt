@@ -1,0 +1,50 @@
+MARCUS JOHNSON
+DevOps Engineer
+Email: marcus.johnson@techmail.com | Phone: (555) 345-6789
+
+PROFESSIONAL PROFILE
+DevOps Engineer with 6 years of experience in cloud infrastructure, automation, and CI/CD. Specialized in AWS, Kubernetes, and infrastructure as code.
+
+CORE COMPETENCIES
+• Cloud Platforms: AWS, Azure, Google Cloud Platform
+• Containers: Docker, Kubernetes, Helm, ECS, EKS
+• IaC: Terraform, CloudFormation, Ansible, Pulumi
+• CI/CD: Jenkins, GitLab CI, GitHub Actions, CircleCI
+• Monitoring: Prometheus, Grafana, ELK Stack, Datadog
+• Scripting: Bash, Python, PowerShell
+• Version Control: Git, GitHub, GitLab, Bitbucket
+
+WORK EXPERIENCE
+
+Senior DevOps Engineer | CloudTech Systems | 2021 - Present
+• Managed AWS infrastructure serving 5M+ users with 99.99% uptime
+• Implemented Kubernetes clusters for microservices deployment
+• Built CI/CD pipelines reducing deployment time from 2 hours to 15 minutes
+• Automated infrastructure provisioning using Terraform
+• Reduced cloud costs by 35% through resource optimization
+
+DevOps Engineer | Digital Innovations | 2019 - 2021
+• Deployed containerized applications using Docker and Kubernetes
+• Created monitoring and alerting systems with Prometheus and Grafana
+• Implemented automated backup and disaster recovery solutions
+• Collaborated with development teams to improve deployment workflows
+
+Systems Engineer | Enterprise Solutions | 2018 - 2019
+• Maintained Linux servers and automated routine tasks with Python
+• Configured and managed Jenkins for automated builds
+• Implemented security best practices and compliance requirements
+
+EDUCATION
+Bachelor of Science in Information Technology
+Georgia Institute of Technology | 2014 - 2018
+
+CERTIFICATIONS
+• AWS Certified DevOps Engineer - Professional
+• Certified Kubernetes Administrator (CKA)
+• HashiCorp Certified: Terraform Associate
+• Google Cloud Professional Cloud Architect
+
+ACHIEVEMENTS
+• Reduced deployment failures by 80% through automated testing
+• Led migration of 50+ applications to Kubernetes
+• Implemented zero-downtime deployments for critical services

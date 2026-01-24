@@ -1,0 +1,74 @@
+MICHAEL BROWN
+Cloud Solutions Architect
+Email: michael.brown@cloudarch.pro | Phone: (555) 345-6789
+
+PROFESSIONAL PROFILE
+Cloud Solutions Architect with 10+ years of experience designing and implementing large-scale cloud infrastructure. Expert in AWS, Azure, and multi-cloud architectures. Strong focus on scalability, security, and cost optimization.
+
+TECHNICAL EXPERTISE
+• Cloud Platforms: AWS, Microsoft Azure, Google Cloud Platform
+• AWS Services: EC2, S3, Lambda, RDS, ECS, EKS, CloudFormation, Route53
+• Azure: Virtual Machines, App Services, Azure Functions, AKS, ARM Templates
+• Architecture: Microservices, Serverless, Event-Driven, High Availability
+• IaC: Terraform, CloudFormation, ARM Templates, Pulumi
+• Containers: Docker, Kubernetes, ECS, AKS, GKE
+• Networking: VPC, Load Balancers, CDN, DNS, VPN, Direct Connect
+• Security: IAM, Security Groups, KMS, Secrets Manager, WAF
+• Monitoring: CloudWatch, Azure Monitor, Prometheus, Grafana, Datadog
+• Databases: RDS, DynamoDB, CosmosDB, Aurora, ElastiCache
+
+PROFESSIONAL EXPERIENCE
+
+Principal Cloud Architect | Enterprise Cloud Services | 2021 - Present
+• Design cloud architectures for Fortune 500 clients ($10M+ projects)
+• Led cloud migration of legacy systems to AWS for 15+ enterprises
+• Architect multi-region, highly available systems with 99.99% uptime
+• Implement cost optimization strategies saving clients $2M+ annually
+• Conduct cloud security assessments and implement best practices
+• Mentor team of 10 cloud engineers and solutions architects
+
+Senior Cloud Architect | Cloud Innovations Corp | 2018 - 2021
+• Designed serverless architectures using AWS Lambda and API Gateway
+• Built container orchestration platforms with Kubernetes on EKS
+• Implemented infrastructure as code using Terraform and CloudFormation
+• Optimized cloud spending reducing costs by 40% through right-sizing
+• Created disaster recovery and backup strategies for critical systems
+
+Cloud Engineer | Tech Infrastructure Inc. | 2015 - 2018
+• Deployed and managed AWS infrastructure for multiple clients
+• Automated infrastructure provisioning and configuration management
+• Implemented CI/CD pipelines for application deployment
+• Provided 24/7 on-call support for production environments
+
+Systems Administrator | DataCenter Solutions | 2014 - 2015
+• Managed Linux and Windows servers in datacenter environment
+• Automated routine tasks using Python and Bash scripts
+• Monitored system performance and resolved issues
+
+EDUCATION
+Master of Science in Cloud Computing
+Georgia Institute of Technology | 2012 - 2014
+
+Bachelor of Science in Computer Engineering
+University of California, Los Angeles | 2008 - 2012
+
+CERTIFICATIONS
+• AWS Certified Solutions Architect - Professional
+• AWS Certified DevOps Engineer - Professional
+• Microsoft Certified: Azure Solutions Architect Expert
+• Google Cloud Professional Cloud Architect
+• Certified Kubernetes Administrator (CKA)
+• HashiCorp Certified: Terraform Associate
+• TOGAF 9 Certified
+
+ACHIEVEMENTS
+• Designed architecture serving 50M+ users globally
+• Published AWS Well-Architected Framework review for 100+ workloads
+• Speaker at AWS re:Invent and Azure Conf
+• Technical reviewer for O'Reilly cloud architecture books
+• Built reference architectures adopted by 500+ companies
+
+THOUGHT LEADERSHIP
+• AWS Community Builder
+• Published 50+ technical articles on cloud architecture
+• YouTube channel on cloud technologies (15K+ subscribers)

@@ -1,0 +1,54 @@
+EMILY CHEN
+Frontend Developer
+Email: emily.chen@webdev.com | Phone: (555) 456-7890
+Portfolio: emilychen.dev
+
+ABOUT ME
+Creative Frontend Developer with 4 years of experience building beautiful, responsive web applications. Passionate about user experience, performance optimization, and modern JavaScript frameworks.
+
+TECHNICAL SKILLS
+• Frontend: React, Next.js, Vue.js, Angular, TypeScript
+• Styling: CSS3, SASS, Tailwind CSS, Material-UI, Styled Components
+• State Management: Redux, MobX, Zustand, React Query
+• Build Tools: Webpack, Vite, Babel, ESLint, Prettier
+• Testing: Jest, React Testing Library, Cypress, Playwright
+• Version Control: Git, GitHub
+• Design: Figma, Adobe XD, Responsive Design, UI/UX principles
+
+EXPERIENCE
+
+Frontend Developer | Web Innovations Inc. | 2022 - Present
+• Built responsive web applications using React and Next.js
+• Improved page load time by 50% through code splitting and lazy loading
+• Implemented pixel-perfect designs from Figma mockups
+• Integrated RESTful APIs and GraphQL endpoints
+• Mentored 2 junior developers on React best practices
+
+Junior Frontend Developer | Creative Digital | 2020 - 2022
+• Developed reusable React components for design system
+• Collaborated with UX designers to implement interactive features
+• Fixed cross-browser compatibility issues
+• Participated in code reviews and Agile ceremonies
+
+Frontend Developer Intern | StartupHub | 2019 - 2020
+• Created landing pages using HTML, CSS, and JavaScript
+• Implemented responsive designs for mobile and tablet devices
+• Learned React and modern frontend development practices
+
+EDUCATION
+Bachelor of Arts in Computer Science
+University of Washington | 2016 - 2020
+
+PROJECTS
+• E-commerce Platform - Built with React, Redux, Stripe integration
+• Weather Dashboard - Next.js app with real-time data visualization
+• Portfolio Generator - SaaS tool helping developers create portfolios
+
+CERTIFICATIONS
+• Meta Frontend Developer Professional Certificate
+• Responsive Web Design (freeCodeCamp)
+
+ACHIEVEMENTS
+• Contributed to popular open-source React libraries
+• 98% code coverage in unit tests across projects
+• Improved accessibility scores from 70 to 95 (Lighthouse)

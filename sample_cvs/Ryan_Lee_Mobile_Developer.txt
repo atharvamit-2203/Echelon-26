@@ -1,0 +1,70 @@
+RYAN LEE
+Mobile Developer (iOS & Android)
+Email: ryan.lee@mobiledev.app | Phone: (555) 123-4567
+
+SUMMARY
+Mobile Developer with 5 years of experience building native and cross-platform mobile applications. Specialized in iOS (Swift) and React Native. Passionate about creating smooth, user-friendly mobile experiences.
+
+TECHNICAL SKILLS
+• iOS: Swift, SwiftUI, UIKit, Xcode, CocoaPods, SPM
+• Android: Kotlin, Java, Jetpack Compose, Android Studio, Gradle
+• Cross-Platform: React Native, Flutter (basic)
+• Backend: Firebase, REST APIs, GraphQL, WebSockets
+• State Management: Redux, MobX, Core Data, Room
+• Testing: XCTest, Espresso, Jest, Detox
+• Tools: Git, Postman, Charles Proxy, Fastlane
+• Cloud: Firebase, AWS Amplify, Google Cloud
+
+PROFESSIONAL EXPERIENCE
+
+Senior Mobile Developer | MobileFirst Inc. | 2022 - Present
+• Developed iOS and Android apps with 500K+ combined downloads
+• Built React Native cross-platform app saving 40% development time
+• Implemented push notifications, deep linking, and analytics
+• Optimized app performance reducing crashes by 80%
+• Integrated payment systems (Apple Pay, Google Pay, Stripe)
+• Mentored 2 junior mobile developers
+
+Mobile Developer | App Innovations | 2020 - 2022
+• Created native iOS apps using Swift and SwiftUI
+• Built custom UI components and smooth animations
+• Integrated RESTful APIs and handled offline data sync
+• Implemented Core Data for local storage
+• Published 3 apps to App Store with 4.5+ star ratings
+
+iOS Developer | Digital Studio | 2019 - 2020
+• Developed iOS applications using Swift and UIKit
+• Collaborated with designers to implement pixel-perfect UIs
+• Fixed bugs and improved app stability
+• Participated in code reviews and pair programming
+
+EDUCATION
+Bachelor of Science in Computer Science
+University of California, San Diego | 2015 - 2019
+
+PROJECTS
+
+Fitness Tracker App | iOS & Android
+• Built with React Native and Firebase backend
+• Features: workout tracking, progress charts, social sharing
+• 10K+ downloads, 4.6-star rating
+
+Recipe Sharing Platform | iOS Native
+• Developed using SwiftUI and Combine framework
+• Integrated Firebase for authentication and storage
+• Implemented camera integration and image editing
+
+CERTIFICATIONS
+• iOS App Development with Swift (Apple)
+• React Native Specialization (Coursera)
+
+ACHIEVEMENTS
+• App featured in "Top New Apps" on App Store
+• Contributed to popular React Native open-source libraries
+• Improved app startup time by 50% through optimization
+• Built app that won "Best User Experience" at Hackathon 2023
+
+INTERESTS
+• Mobile UI/UX design and animation
+• Contributing to open-source mobile projects
+• Staying updated with latest iOS and Android releases
