@@ -1,241 +1,195 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Optional
+from firebase_service import FirebaseService
+import json
+from datetime import datetime
 
-# ----------------------------
-# Mock Data Generation (Replace with real API/backend)
-# ----------------------------
-def generate_mock_data():
-    # Candidate data
-    np.random.seed(42)
-    candidates = pd.DataFrame({
-        'candidate_id': range(1, 101),
-        'age_group': np.random.choice(['<30', '30-45', '>45'], 100, p=[0.3, 0.4, 0.3]),
-        'gender': np.random.choice(['Male', 'Female', 'Non-binary'], 100, p=[0.45, 0.5, 0.05]),
-        'keywords_used': [
-            np.random.choice(['KPI', 'OKR', 'Metrics'], p=[0.6, 0.3, 0.1]) if i % 2 == 0 
-            else np.random.choice(['CRM Strategy', 'Client Engagement', 'Relationship Mgmt'], p=[0.7, 0.2, 0.1])
-            for i in range(100)
-        ],
-        'rejected_by_ats': np.random.choice([True, False], 100, p=[0.4, 0.6]),
-        'semantic_score': np.random.uniform(0.7, 0.99, 100)  # Higher = better semantic match
-    })
-    
-    # Bias metrics
-    bias_metrics = {
-        'keyword': ['KPI', 'CRM Strategy'],
-        'rejection_rate_overall': [0.38, 0.42],
-        'rejection_rate_age_<30': [0.25, 0.30],
-        'rejection_rate_age_>45': [0.55, 0.60],
-        'rejection_rate_female': [0.45, 0.50],
-        'rejection_rate_male': [0.30, 0.35]
-    }
-    bias_df = pd.DataFrame(bias_metrics)
-    
-    # Rescued candidates
-    rescued = candidates[
-        (candidates['rejected_by_ats']) & 
-        (candidates['semantic_score'] > 0.85) &
-        ((candidates['age_group'] == '>45') | (candidates['gender'] == 'Female'))
-    ].head(5)
-    
-    return candidates, bias_df, rescued
+app = FastAPI(title="Fair-Hire Sentinel API")
 
-# ----------------------------
-# Streamlit App Configuration
-# ----------------------------
-st.set_page_config(
-    page_title="Fair-Hire Sentinel",
-    page_icon="🔍",
-    layout="wide",
-    initial_sidebar_state="expanded"
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Custom CSS for branding
-st.markdown("""
-<style>
-    :root {
-        --primary: #4a6cf7;
-        --secondary: #6c757d;
-        --success: #28a745;
-        --warning: #ffc107;
-        --danger: #dc3545;
-    }
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: var(--primary);
-        margin-bottom: 0.5rem;
-    }
-    .metric-card {
-        background-color: #f8f9fa;
-        border-radius: 10px;
-        padding: 1rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .alert-box {
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-    }
-    .bias-alert {
-        background-color: #fff3cd;
-        border-left: 4px solid var(--warning);
-    }
-    .rescue-alert {
-        background-color: #d1ecf1;
-        border-left: 4px solid var(--success);
-    }
-</style>
-""", unsafe_allow_html=True)
+class MetricData(BaseModel):
+    title: str
+    value: str
+    delta: str
+    trend: str = "up"
 
-# ----------------------------
-# Sidebar Controls
-# ----------------------------
-st.sidebar.image("https://placehold.co/150x50/4a6cf7/white?text=Fair-Hire+Sentinel", use_column_width=True)
-st.sidebar.title("Dashboard Controls")
-time_window = st.sidebar.selectbox("Time Window", ["Last 7 Days", "Last 30 Days", "Last 90 Days"])
-job_role = st.sidebar.selectbox("Job Role", ["All Roles", "Sales Manager", "Marketing Lead", "Data Analyst"])
-threshold = st.sidebar.slider("Bias Alert Threshold", 0.0, 1.0, 0.25, 0.05)
+class AlertData(BaseModel):
+    type: str
+    title: str
+    description: str
+    affected: str
+    recommendation: str = ""
 
-# ----------------------------
-# Main Dashboard
-# ----------------------------
-st.markdown('<div class="main-header">Fair-Hire Sentinel</div>', unsafe_allow_html=True)
-st.subheader("Real-time Bias Monitoring & Talent Rescue System")
+class CVData(BaseModel):
+    name: str
+    email: str
+    phone: str
+    age: int
+    gender: str
+    experience: int
+    skills: List[str]
+    education: str
+    location: str
+    currentRole: str
+    expectedSalary: str
 
-# Generate mock data
-candidates, bias_df, rescued_candidates = generate_mock_data()
+class CandidateData(BaseModel):
+    id: int
+    age_group: str
+    gender: str
+    keywords: str
+    score: int
 
-# ----------------------------
-# Key Metrics Row
-# ----------------------------
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("Total Candidates", len(candidates))
-    st.markdown('</div>', unsafe_allow_html=True)
+class HomePageData(BaseModel):
+    metrics: List[MetricData]
+    alerts: List[AlertData]
+    rescued_candidates: List[CandidateData]
+    age_stats: dict
+    gender_stats: dict
+
+@app.get("/")
+def read_root():
+    return {"message": "Fair-Hire Sentinel API"}
+
+@app.get("/api/home", response_model=HomePageData)
+def get_home_data():
+    # Try to get data from Firebase, fallback to static data
+    try:
+        firebase_metrics = FirebaseService.get_metrics()
+        firebase_alerts = FirebaseService.get_alerts()
+        firebase_candidates = FirebaseService.get_rescued_candidates()
+        firebase_analytics = FirebaseService.get_analytics()
+        
+        if firebase_metrics and firebase_alerts:
+            return HomePageData(
+                metrics=[
+                    MetricData(title="Total Candidates", value=str(firebase_metrics['totalCandidates']['value']), delta=firebase_metrics['totalCandidates']['delta']),
+                    MetricData(title="ATS Rejections", value=str(firebase_metrics['atsRejections']['value']), delta=firebase_metrics['atsRejections']['delta'], trend="down"),
+                    MetricData(title="Rescued Candidates", value=str(firebase_metrics['rescuedCandidates']['value']), delta=firebase_metrics['rescuedCandidates']['delta']),
+                    MetricData(title="Active Bias Alerts", value=str(firebase_metrics['activeBiasAlerts']['value']), delta=firebase_metrics['activeBiasAlerts']['delta'])
+                ],
+                alerts=[AlertData(**alert) for alert in firebase_alerts],
+                rescued_candidates=[CandidateData(id=c['id'], age_group=c['ageGroup'], gender=c['gender'], keywords=c['keywords'], score=c['score']) for c in firebase_candidates],
+                age_stats=firebase_analytics['ageStats'] if firebase_analytics else {},
+                gender_stats=firebase_analytics['genderStats'] if firebase_analytics else {}
+            )
+    except Exception as e:
+        print(f"Firebase error: {e}")
     
-with col2:
-    rejected_count = candidates['rejected_by_ats'].sum()
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("ATS Rejections", rejected_count)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-with col3:
-    high_potential = len(candidates[candidates['semantic_score'] > 0.85])
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("High-Potential Candidates", high_potential)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-with col4:
-    bias_alerts = len(bias_df[(bias_df['rejection_rate_age_>45'] - bias_df['rejection_rate_age_<30']) > threshold])
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("Active Bias Alerts", bias_alerts)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ----------------------------
-# Real-time Alerts Section
-# ----------------------------
-st.markdown("### ⚠️ Real-time Alerts")
-if bias_alerts > 0:
-    st.markdown(f"""
-    <div class="alert-box bias-alert">
-        <strong>Bias Detected!</strong> Keyword filters show {threshold*100}%+ higher rejection rates for candidates over 45 vs. under 30.
-        <br><em>Recommendation: Review "KPI" and "CRM Strategy" filters immediately.</em>
-    </div>
-    """, unsafe_allow_html=True)
-
-if not rescued_candidates.empty:
-    st.markdown(f"""
-    <div class="alert-box rescue-alert">
-        <strong>Talent Rescue Opportunity!</strong> {len(rescued_candidates)} high-potential candidates were auto-rejected but match role requirements semantically.
-        <br><em>Action: Review rescued candidates below.</em>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ----------------------------
-# Demographic Disparity Analysis
-# ----------------------------
-st.markdown("### 📊 Demographic Disparity Analysis")
-disparity_tab1, disparity_tab2 = st.tabs(["Age Groups", "Gender"])
-
-with disparity_tab1:
-    fig_age = go.Figure()
-    fig_age.add_trace(go.Bar(
-        x=bias_df['keyword'],
-        y=bias_df['rejection_rate_age_<30'],
-        name='Under 30',
-        marker_color='#636efa'
-    ))
-    fig_age.add_trace(go.Bar(
-        x=bias_df['keyword'],
-        y=bias_df['rejection_rate_age_>45'],
-        name='Over 45',
-        marker_color='#ef553b'
-    ))
-    fig_age.update_layout(
-        barmode='group',
-        title="Rejection Rate by Age Group & Keyword",
-        yaxis_title="Rejection Rate",
-        legend_title="Age Group"
+    # Fallback to static data
+    return HomePageData(
+        metrics=[
+            MetricData(title="Total Candidates", value="250", delta="+12"),
+            MetricData(title="ATS Rejections", value="88", delta="35%", trend="down"),
+            MetricData(title="Rescued Candidates", value="12", delta="+5"),
+            MetricData(title="Active Bias Alerts", value="3", delta="⚠️")
+        ],
+        alerts=[
+            AlertData(
+                type="warning",
+                title="🟡 Bias Detected in Keyword Filters",
+                description="3 keyword(s) show rejection rate disparities exceeding 25% threshold.",
+                affected="Candidates over 45 years old",
+                recommendation="Review \"KPI\" and \"OKR\" filters to include semantic equivalents"
+            ),
+            AlertData(
+                type="info",
+                title="🦸 Talent Rescue Opportunity",
+                description="12 high-potential candidates auto-rejected but have >85% semantic match.",
+                affected="Primarily experienced professionals (45+) and female candidates"
+            )
+        ],
+        rescued_candidates=[
+            CandidateData(id=1023, age_group=">45", gender="Female", keywords="CRM Strategy", score=92),
+            CandidateData(id=1847, age_group=">45", gender="Male", keywords="KPI", score=89),
+            CandidateData(id=2156, age_group="30-45", gender="Female", keywords="Client Engagement", score=87)
+        ],
+        age_stats={"Under 30": 22, "30-45": 30, "Over 45": 52},
+        gender_stats={"Male": 28, "Female": 42, "Non-binary": 38}
     )
-    st.plotly_chart(fig_age, use_container_width=True)
 
-with disparity_tab2:
-    fig_gender = go.Figure()
-    fig_gender.add_trace(go.Bar(
-        x=bias_df['keyword'],
-        y=bias_df['rejection_rate_female'],
-        name='Female',
-        marker_color='#ab63fa'
-    ))
-    fig_gender.add_trace(go.Bar(
-        x=bias_df['keyword'],
-        y=bias_df['rejection_rate_male'],
-        name='Male',
-        marker_color='#00cc96'
-    ))
-    fig_gender.update_layout(
-        barmode='group',
-        title="Rejection Rate by Gender & Keyword",
-        yaxis_title="Rejection Rate",
-        legend_title="Gender"
-    )
-    st.plotly_chart(fig_gender, use_container_width=True)
+@app.post("/api/cvs")
+async def add_cv(
+    name: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    age: int = Form(...),
+    gender: str = Form(...),
+    experience: int = Form(...),
+    skills: str = Form(...),
+    education: str = Form(...),
+    location: str = Form(...),
+    currentRole: str = Form(...),
+    expectedSalary: str = Form(...),
+    cv_file: Optional[UploadFile] = File(None)
+):
+    try:
+        # Generate candidate ID
+        candidate_id = f"CV{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        # Parse skills from comma-separated string
+        skills_list = [skill.strip() for skill in skills.split(',')]
+        
+        cv_data = {
+            "candidateId": candidate_id,
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "age": age,
+            "gender": gender,
+            "experience": experience,
+            "skills": skills_list,
+            "education": education,
+            "location": location,
+            "currentRole": currentRole,
+            "expectedSalary": expectedSalary,
+            "status": "under_review",
+            "uploadedAt": datetime.now()
+        }
+        
+        # Add CV to Firebase
+        result = FirebaseService.add_cv(cv_data)
+        return {"message": "CV added successfully", "candidateId": candidate_id}
+    except Exception as e:
+        return {"error": str(e)}
 
-# ----------------------------
-# Rescued Candidates Table
-# ----------------------------
-st.markdown("### 🦸 Rescued High-Potential Candidates")
-if not rescued_candidates.empty:
-    st.dataframe(
-        rescued_candidates[['candidate_id', 'age_group', 'gender', 'keywords_used', 'semantic_score']].style.format({
-            'semantic_score': '{:.2%}'
-        }),
-        use_container_width=True
-    )
-else:
-    st.info("No rescued candidates in current time window. Great job optimizing your filters!")
+@app.get("/api/cvs")
+def get_cvs():
+    try:
+        cvs = FirebaseService.get_cvs()
+        return {"cvs": cvs}
+    except Exception as e:
+        return {"error": str(e)}
 
-# ----------------------------
-# Action Recommendations
-# ----------------------------
-st.markdown("### 💡 Actionable Recommendations")
-st.markdown("""
-1. **Expand Keyword Filters**: Replace rigid terms like "KPI" with semantic equivalents:  
-   `["Key Performance Indicators", "Success Metrics", "Performance Targets"]`
-   
-2. **Adjust Age-Sensitive Filters**: Add weight to experience indicators (e.g., "10+ years") to balance against modern jargon.
+@app.get("/api/recruiting-managers")
+def get_recruiting_managers():
+    try:
+        managers = FirebaseService.get_recruiting_managers()
+        return {"managers": managers}
+    except Exception as e:
+        return {"error": str(e)}
 
-3. **Enable Semantic Matching**: Activate our NLP engine to auto-suggest alternatives when rejection rates exceed thresholds.
+@app.get("/api/companies")
+def get_companies():
+    try:
+        companies = FirebaseService.get_companies()
+        return {"companies": companies}
+    except Exception as e:
+        return {"error": str(e)}
 
-4. **Review Rescued Candidates**: Prioritize profiles with semantic scores >85% that were auto-rejected.
-""")
-
-# Footer
-st.markdown("---")
-st.caption("Fair-Hire Sentinel v1.2 • AI-powered bias detection for equitable hiring • Updated Jan 24, 2026")
+@app.post("/api/populate-data")
+def populate_data():
+    try:
+        FirebaseService.populate_sample_data()
+        return {"message": "Data populated successfully"}
+    except Exception as e:
+        return {"error": str(e)}
