@@ -1,14 +1,13 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import Navbar from '@/components/Navbar'
-import Sidebar from '@/components/Sidebar'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Fair-Hire Sentinel',
-  description: 'AI-powered bias detection for equitable hiring',
+  title: 'Fair-Hire | AI-Powered Bias Detection',
+  description: 'Stop losing top talent to hidden ATS bias. Fair-Hire monitors your hiring process for discrimination and helps you find hidden experts.',
+  keywords: 'ATS, bias detection, fair hiring, AI recruitment, diversity hiring',
 }
 
 export default function RootLayout({
@@ -17,16 +16,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <div className="flex-1">
-            <Navbar />
-            <main className="p-6">
-              {children}
-            </main>
-          </div>
+    <html lang="en" className="dark">
+      <body className={`${inter.className} antialiased`}>
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+          {children}
         </div>
       </body>
     </html>
