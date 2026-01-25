@@ -60,20 +60,50 @@ export default function AlertsPage() {
           
           // Enhanced recommendations based on alert type
           let recommendations = [];
-          if (alert.title.includes('Bias Detected in Keyword Filters')) {
-            const candidateText = affectedCount === 1 ? 'candidate' : 'candidates';
+          if (alert.title.includes('Age-Based Bias') || alert.title.includes('Age')) {
             recommendations = [
-              '🔍 Audit Current Keywords: Review all keyword filters that show >25% rejection rate disparity',
-              '📊 Analyze Semantic Equivalents: Identify professional terms that match job requirements (e.g., "Performance Targets" = "KPI")',
-              '🔄 Update ATS Filters: Add semantic synonyms to existing keyword requirements',
-              `👥 Review Rejected Candidates: Manually assess the ${affectedCount || 'affected'} ${candidateText} who were filtered out`,
-              '⚙️ Implement Fuzzy Matching: Configure ATS to accept similar terms with 80%+ semantic similarity',
-              '📈 Monitor Impact: Track acceptance rates after implementing changes to ensure improvement',
-              '🎯 Set Alerts: Configure notifications for future keyword-based rejection disparities',
-              '📚 Train Recruiters: Educate team on recognizing equivalent professional terminology'
+              '🔍 Audit Rejection Criteria: Review decision factors for candidates with 10+ years experience',
+              '📊 Analyze Experience Value: High experience should be an asset, not a liability',
+              '🔄 Review Rejected Profiles: Manually assess experienced candidates who were filtered out',
+              '⚙️ Update Scoring Algorithm: Ensure experience is weighted positively in ATS scoring',
+              '📈 Monitor Age Groups: Track acceptance rates across different age demographics'
             ];
+          } else if (alert.title.includes('Skill') || alert.biased_skills) {
+            const skills = alert.biased_skills ? alert.biased_skills.join(', ').split(',').map((s: string) => s.trim().substring(0, 20)).join(', ') : 'certain skills';
+            recommendations = [
+              `🎯 Keyword Expansion: Add semantic equivalents for skills like "${skills}"`,
+              '📊 Skill Taxonomy Review: Update ATS to recognize experience-level terminology variations',
+              '🔍 Semantic Matching: Implement fuzzy matching to catch equivalent skill descriptions',
+              '⚙️ Experience Weighting: Ensure senior-level skill descriptions are not penalized',
+              `📋 Affected Skills: ${skills}`
+            ];
+          } else if (alert.title.includes('Gender')) {
+            recommendations = [
+              '🔍 Implement Gender-Blind Screening: Remove gender indicators from initial review',
+              '📊 Audit Gendered Language: Check ATS for keywords that correlate with gender',
+              '⚖️ Review Rejection Reasons: Analyze if certain terms are gender-biased',
+              '📈 Monitor Gender Metrics: Track acceptance rates by gender demographics',
+              '🎯 Bias Training: Educate hiring team on gender bias awareness'
+            ];
+          } else if (alert.title.includes('Talent Rescue') || alert.title.includes('Rescue Opportunity')) {
+            recommendations = [
+              '👥 Review High-Potential Candidates: Manually assess rejected candidates with strong qualifications',
+              '🔍 Analyze Rejection Patterns: Identify why qualified candidates are being filtered out',
+              '📊 Semantic Matching: Implement fuzzy matching to catch equivalent skills and experience',
+              '🎯 Lower False Rejection Rate: Adjust ATS thresholds to reduce qualified candidate rejections'
+            ];
+          } else if (alert.recommendations) {
+            // Use recommendations from backend if available
+            recommendations = alert.recommendations;
           } else if (alert.recommendation) {
             recommendations = [alert.recommendation];
+          } else {
+            // Default recommendations
+            recommendations = [
+              '🔍 Review affected candidates for potential bias patterns',
+              '📊 Analyze hiring data for demographic disparities',
+              '⚙️ Update ATS configuration to ensure fair evaluation'
+            ];
           }
           
           combinedAlerts.push({
