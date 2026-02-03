@@ -69,24 +69,19 @@ export default function CVManagement() {
         headers: { 'Content-Type': 'application/json' }
       });
       
-      const data = await response.json();
-      
       if (response.ok) {
-        setAnalysisStatus('Analysis running... Check Analytics page for results');
-        // Poll for completion
-        setTimeout(() => {
-          setAnalyzing(false);
-          setAnalysisStatus('Analysis completed! View results in Analytics page');
-          // Refresh data
-          fetchData();
-        }, 5000);
+        // Immediately redirect to analytics page with live progress
+        window.location.href = '/analytics?analyzing=true';
       } else {
-        throw new Error('Analysis failed');
+        setAnalyzing(false);
+        setAnalysisStatus('Error: Analysis failed to start');
+        alert('Failed to start analysis. Please check the backend server.');
       }
     } catch (error) {
       console.error('Error starting analysis:', error);
-      setAnalysisStatus('Error starting analysis');
+      setAnalysisStatus('Error: Could not connect to backend');
       setAnalyzing(false);
+      alert('Error starting analysis. Please ensure backend is running on port 8000.');
     }
   };
 

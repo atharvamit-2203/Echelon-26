@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from datetime import datetime
 import json
+import os
 
 try:
     from cv_file_processor import CVFileProcessor
@@ -55,8 +56,19 @@ class FirebaseService:
         return [cv.to_dict() for cv in cvs_ref.stream()]
     
     @staticmethod
+    def get_all_cvs():
+        """Get all CVs from Firestore for analysis"""
+        cvs_ref = db.collection('cvs')
+        cvs = []
+        for doc in cvs_ref.stream():
+            cv_dict = doc.to_dict()
+            cv_dict['id'] = doc.id
+            cvs.append(cv_dict)
+        return cvs
+    
+    @staticmethod
     def get_cvs_from_files():
-        """Get CVs from the sample_cvs folder"""
+        """Get CVs from the sample_cvs folder with ML-powered extraction"""
         if not CV_PROCESSOR_AVAILABLE:
             return []
         processor = CVFileProcessor()

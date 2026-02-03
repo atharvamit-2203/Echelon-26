@@ -2,6 +2,8 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext'
+import Providers from '@/components/Providers'
+import NotificationToast from '@/components/NotificationToast'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,11 +21,14 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} antialiased`}>
-        <AuthProvider>
-          <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
-            {children}
-          </div>
-        </AuthProvider>
+        <Providers>
+          <AuthProvider>
+            <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+              {children}
+            </div>
+            <NotificationToast />
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   )

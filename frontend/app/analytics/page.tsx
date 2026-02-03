@@ -37,6 +37,8 @@ export default function Analytics() {
   const [rescueAlerts, setRescueAlerts] = useState<any[]>([]);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState<{ message: string; count: number }>({ message: '', count: 0 });
+  const [analysisProgress, setAnalysisProgress] = useState<string>('');
+  const [analysisStep, setAnalysisStep] = useState<number>(0);
 
   useEffect(() => {
     fetchCVData();
@@ -45,6 +47,11 @@ export default function Analytics() {
     const interval = setInterval(fetchAnalysisResults, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Debug effect to check candidateAnalytics state
+  useEffect(() => {
+    console.log('candidateAnalytics state updated:', candidateAnalytics.length, candidateAnalytics);
+  }, [candidateAnalytics]);
 
   const fetchCVData = async () => {
     try {
@@ -83,22 +90,38 @@ export default function Analytics() {
   };
 
   const transformCVsToResumes = (cvs: any[]) => {
-    if (!cvs || cvs.length === 0) return;
+    if (!cvs || cvs.length === 0) {
+      console.log('No CVs to transform');
+      return;
+    }
     
-    const transformed = cvs.map((cv, index) => {
-      // Extract name from various possible fields
+    // ONLY include CVs that have been analyzed (have actual scores or status)
+    const analyzedCVs = cvs.filter(cv => 
+      cv.atsScore || cv.ats_score || cv.match_rate || cv.analyzed === true || 
+      ['analyzed', 'immediate_interview', 'shortlisted', 'rescued', 'rejected'].includes(cv.status)
+    );
+    
+    if (analyzedCVs.length === 0) {
+      console.log('No analyzed CVs found - all CVs are pending analysis');
+      setCandidateAnalytics([]);
+      setResumes([]);
+      return;
+    }
+    
+    console.log(`Transforming ${analyzedCVs.length} analyzed CVs out of ${cvs.length} total`);
+    
+    const transformed = analyzedCVs.map((cv, index) => {
       const candidateName = cv.name || cv.candidateName || cv.candidate_name || `Candidate ${index + 1}`;
       const position = cv.currentRole || cv.position || cv.job_title || 'Position not specified';
       const skillsList = Array.isArray(cv.skills) ? cv.skills : (cv.skills ? cv.skills.split(',') : []);
       
-      // Extract job family match information
       const bestJobFamily = cv.best_job_family || cv.bestJobFamily || null;
       const jobMatchScore = cv.job_family_match_score || cv.jobFamilyMatchScore || null;
       const jobCategory = cv.job_category || cv.jobCategory || null;
       const top3Matches = cv.top_3_job_matches || cv.top3JobMatches || [];
       
-      // Calculate actual ATS score from match_rate or keywords
-      const atsScore = cv.atsScore || cv.ats_score || (cv.match_rate ? cv.match_rate * 100 : null) || Math.floor(Math.random() * 40 + 60);
+      // REAL ATS score only - no fallbacks
+      const atsScore = cv.atsScore || cv.ats_score || (cv.match_rate ? cv.match_rate * 100 : 0);
       
       return {
         id: cv.candidateId || cv.candidate_id || index + 1,
@@ -112,7 +135,6 @@ export default function Analytics() {
           age: cv.age > 45 ? 'Potential bias detected' : 'None',
           gender: 'None'
         },
-        // Strong match if ATS score >= 75% OR status is shortlisted/rescued
         passed: atsScore >= 75 || cv.status === 'shortlisted' || cv.status === 'immediate_interview',
         bestJobFamily: bestJobFamily,
         jobMatchScore: jobMatchScore,
@@ -123,25 +145,27 @@ export default function Analytics() {
     
     setResumes(transformed);
     
-    // Transform for candidate analytics charts
-    const analyticsData = cvs.map((cv, index) => {
+    // REAL analytics data - NO fallbacks
+    const analyticsData = analyzedCVs.map((cv, index) => {
       const candidateName = cv.name || cv.candidateName || cv.candidate_name || `Candidate ${index + 1}`;
-      const atsScore = cv.atsScore || cv.ats_score || (cv.match_rate ? cv.match_rate * 100 : null) || Math.floor(Math.random() * 40 + 60);
-      const semanticScore = cv.semantic_analysis?.overall_match_score ? cv.semantic_analysis.overall_match_score * 100 : atsScore + Math.random() * 10 - 5;
-      const codingScore = cv.coding_score || (semanticScore + Math.random() * 10 - 5);
-      const experience = cv.experience || Math.floor(Math.random() * 15) + 1;
+      const atsScore = cv.atsScore || cv.ats_score || (cv.match_rate ? cv.match_rate * 100 : 0);
+      const semanticScore = cv.semantic_analysis?.overall_match_score 
+        ? cv.semantic_analysis.overall_match_score * 100 
+        : atsScore; // Use ATS score if no semantic score
+      const codingScore = cv.coding_score || cv.actualPotential || semanticScore;
+      const experience = cv.experience || 0;
       const status = cv.status || (atsScore >= 75 ? 'accepted' : 'rejected');
-      const isRescued = cv.status === 'rescued' || (cv.semantic_analysis?.overall_match_score > 0.65 && atsScore < 75);
+      const isRescued = cv.status === 'rescued' || cv.status === 'immediate_interview' || (cv.semantic_analysis?.overall_match_score > 0.65 && atsScore < 75);
       
       return {
-        id: cv.candidateId || cv.candidate_id || index + 1,
+        id: cv.candidateId || cv.candidate_id || `cv-${index}`,
         name: candidateName,
         atsScore: Math.round(atsScore),
         semanticScore: Math.round(semanticScore),
         codingScore: Math.round(codingScore),
         actualPotential: Math.round((semanticScore + codingScore) / 2),
         status: status,
-        reason: cv.rejection_reason || cv.rejectionReason || (atsScore < 75 ? 'Low keyword match' : 'Strong match'),
+        reason: cv.rejection_reason || cv.rejectionReason || cv.rescue_reason || (atsScore < 75 ? 'Low keyword match' : 'Strong match'),
         yearsExp: experience,
         education: cv.education || 'Not specified',
         isRescued: isRescued,
@@ -149,9 +173,8 @@ export default function Analytics() {
       };
     });
     
-    if (analyticsData.length > 0) {
-      setCandidateAnalytics(analyticsData);
-    }
+    console.log(`Created ${analyticsData.length} real analytics data points`);
+    setCandidateAnalytics(analyticsData);
   };
 
   const transformAlertsToAnalytics = (alerts: any[]) => {
@@ -187,75 +210,106 @@ export default function Analytics() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('analyzing') === 'true') {
       setAnalyzing(true);
-      setNotificationData({
-        message: '🔄 Analysis is running... Results will appear automatically',
-        count: 0
-      });
       setShowNotification(true);
       
-      // Monitor for results for 30 seconds
-      let checkCount = 0;
-      const resultInterval = setInterval(async () => {
-        checkCount++;
-        await fetchAnalysisResults();
-        await fetchCVData();
-        
-        if (checkCount >= 20) {
-          clearInterval(resultInterval);
-          setAnalyzing(false);
+      // Simulate analysis steps with progress updates
+      const steps = [
+        { step: 1, message: '🤖 Loading CVs from files and database...', duration: 2000 },
+        { step: 2, message: '🧠 Gemini AI extracting candidate information...', duration: 3000 },
+        { step: 3, message: '🎯 Running multi-job family analysis...', duration: 4000 },
+        { step: 4, message: '🔍 Performing semantic similarity matching...', duration: 3000 },
+        { step: 5, message: '⚖️ Detecting bias patterns (Four-Fifths Rule)...', duration: 2000 },
+        { step: 6, message: '💾 Saving analysis results to database...', duration: 2000 },
+        { step: 7, message: '✅ Analysis complete! Loading results...', duration: 1000 }
+      ];
+      
+      let currentStep = 0;
+      const showNextStep = () => {
+        if (currentStep < steps.length) {
+          const step = steps[currentStep];
+          setAnalysisStep(step.step);
+          setAnalysisProgress(step.message);
+          setNotificationData({
+            message: step.message,
+            count: 0
+          });
+          currentStep++;
+          setTimeout(showNextStep, step.duration);
+        } else {
+          // All steps done, start checking for results
+          monitorResults();
+        }
+      };
+      
+      showNextStep();
+      
+      const monitorResults = () => {
+        // Monitor for results for 30 seconds
+        let checkCount = 0;
+        const resultInterval = setInterval(async () => {
+          checkCount++;
+          await fetchAnalysisResults();
+          await fetchCVData();
           
-          // Check for completed analysis
-          const [homeRes, rescueRes] = await Promise.all([
-            fetch('http://localhost:8000/api/home'),
-            fetch('http://localhost:8000/api/rescue-alerts')
-          ]);
+          if (checkCount >= 20) {
+            clearInterval(resultInterval);
+            setAnalyzing(false);
+            setAnalysisStep(7);
+            setAnalysisProgress('✅ Analysis complete! Loading results...');
           
-          const homeData = await homeRes.json();
-          const rescueData = await rescueRes.json();
+            // Check for completed analysis
+            const [homeRes, rescueRes] = await Promise.all([
+              fetch('http://localhost:8000/api/home'),
+              fetch('http://localhost:8000/api/rescue-alerts')
+            ]);
           
-          let totalAlerts = 0;
-          let alertMessages = [];
+            const homeData = await homeRes.json();
+            const rescueData = await rescueRes.json();
           
-          if (homeData.alerts && homeData.alerts.length > 0) {
-            const biasAlerts = homeData.alerts.filter((a: any) => 
-              a.type === 'warning' || a.title.includes('Bias')
-            );
-            totalAlerts += biasAlerts.length;
-            if (biasAlerts.length > 0) {
-              alertMessages.push(`${biasAlerts.length} bias pattern${biasAlerts.length > 1 ? 's' : ''}`);
+            let totalAlerts = 0;
+            let alertMessages = [];
+          
+            if (homeData.alerts && homeData.alerts.length > 0) {
+              const biasAlerts = homeData.alerts.filter((a: any) => 
+                a.type === 'warning' || a.title.includes('Bias')
+              );
+              totalAlerts += biasAlerts.length;
+              if (biasAlerts.length > 0) {
+                alertMessages.push(`${biasAlerts.length} bias pattern${biasAlerts.length > 1 ? 's' : ''}`);
+              }
+            }
+          
+            if (rescueData.rescue_alerts && rescueData.rescue_alerts.length > 0) {
+              const totalRescued = rescueData.rescue_alerts.reduce(
+                (sum: number, alert: any) => sum + (alert.candidates?.length || 1), 
+                0
+              );
+              totalAlerts += totalRescued;
+              alertMessages.push(`${totalRescued} candidate${totalRescued > 1 ? 's' : ''} rescued`);
+            }
+          
+            if (totalAlerts > 0) {
+              setNotificationData({
+                message: `✅ Analysis Complete! Detected: ${alertMessages.join(' & ')}`,
+                count: totalAlerts
+              });
+              setShowNotification(true);
+              setTimeout(() => setShowNotification(false), 15000);
+            } else {
+              setNotificationData({
+                message: `✅ Analysis Complete! No biases detected in this batch.`,
+                count: 0
+              });
+              setShowNotification(true);
+              setTimeout(() => setShowNotification(false), 8000);
             }
           }
-          
-          if (rescueData.rescue_alerts && rescueData.rescue_alerts.length > 0) {
-            const totalRescued = rescueData.rescue_alerts.reduce(
-              (sum: number, alert: any) => sum + (alert.candidates?.length || 1), 
-              0
-            );
-            totalAlerts += totalRescued;
-            alertMessages.push(`${totalRescued} candidate${totalRescued > 1 ? 's' : ''} rescued`);
-          }
-          
-          if (totalAlerts > 0) {
-            setNotificationData({
-              message: `✅ Analysis Complete! Detected: ${alertMessages.join(' & ')}`,
-              count: totalAlerts
-            });
-            setShowNotification(true);
-            setTimeout(() => setShowNotification(false), 15000);
-          } else {
-            setNotificationData({
-              message: `✅ Analysis Complete! No biases detected in this batch.`,
-              count: 0
-            });
-            setShowNotification(true);
-            setTimeout(() => setShowNotification(false), 8000);
-          }
-        }
-      }, 1500);
-      
-      // Clean up URL
-      window.history.replaceState({}, '', '/analytics');
+        }, 1500);
+      };
     }
+    
+    // Clear URL param
+    window.history.replaceState({}, '', '/analytics');
   }, []);
 
   // Auto-poll for new analysis results ONLY when analyzing
@@ -365,7 +419,7 @@ export default function Analytics() {
               <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
                 <h3 className="text-xl font-bold text-white mb-4">🔑 Required Keywords</h3>
                 <div className="space-y-2">
-                  {resume.keywordsRequired.map((keyword, idx) => {
+                  {resume.keywordsRequired.map((keyword: string, idx: number) => {
                     const found = resume.keywordsFound.includes(keyword);
                     return (
                       <div
@@ -456,13 +510,23 @@ export default function Analytics() {
                 <h1 className="text-3xl font-bold text-white">📈 ATS Analytics</h1>
                 <p className="text-gray-400 mt-1">Review resume screening results and bias detection</p>
                 {analyzing ? (
-                  <p className="text-sm text-amber-400 mt-2 flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Analysis in progress... Results loading
-                  </p>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-amber-400">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span className="font-semibold">{analysisProgress || 'Analysis in progress...'}</span>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${(analysisStep / 7) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-400">Step {analysisStep} of 7</p>
+                  </div>
                 ) : (
                   <p className="text-sm text-cyan-400 mt-2">💡 Tip: Run analysis from Dashboard to see results here</p>
                 )}
@@ -525,21 +589,46 @@ export default function Analytics() {
               <div className="bg-gray-900 border border-gray-700 rounded-lg p-5">
                 <div className="text-sm text-gray-400 mb-2">Avg Match Rate</div>
                 <div className="text-3xl font-bold text-cyan-400">
-                  {Math.round(resumes.reduce((sum, r) => sum + r.matchPercent, 0) / resumes.length)}%
+                  {resumes.length > 0 ? Math.round(resumes.reduce((sum, r) => sum + r.matchPercent, 0) / resumes.length) : 0}%
                 </div>
                 <div className="text-sm text-cyan-400 mt-1">Across all</div>
               </div>
             </div>
 
+            {/* No Data Message */}
+            {resumes.length === 0 && !analyzing && (
+              <div className="bg-gray-900 border border-amber-600/50 rounded-lg p-8 text-center">
+                <div className="text-6xl mb-4">📊</div>
+                <h3 className="text-xl font-bold text-white mb-2">No Analysis Results Yet</h3>
+                <p className="text-gray-400 mb-4">
+                  Upload some CVs and run the analysis to see Fair-Hire Sentinel in action!
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => window.location.href = '/cvs'}
+                    className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Upload CVs
+                  </button>
+                  <button
+                    onClick={handleDashboardRedirect}
+                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Go to Dashboard
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Resumes List */}
+            {resumes.length > 0 && (
             <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <BarChart3 className="w-6 h-6 text-cyan-400" />
                 Resume Screening Results
               </h2>
 
-              <div className="space-y-3">
-                {resumes.map((resume, idx) => (
+              <div className="space-y-3">{resumes.map((resume, idx) => (
                   <div
                     key={resume.id}
                     className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 hover:bg-gray-800 transition-colors"
@@ -598,8 +687,10 @@ export default function Analytics() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Key Insights */}
+            {resumes.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-cyan-900/20 border border-cyan-700 rounded-lg p-6">
                 <h3 className="font-semibold text-cyan-400 mb-2">💡 Key Insight</h3>
@@ -611,6 +702,7 @@ export default function Analytics() {
                 <p className="text-gray-300">2 candidates with partial matches may still be strong fits. Consider manual review.</p>
               </div>
             </div>
+            )}
           </>
         ) : (
           <div className="space-y-6">
@@ -640,16 +732,6 @@ export default function Analytics() {
             {chartView === 'scatter' && (
               <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
                 <h3 className="text-2xl font-bold mb-6 text-white">ATS Score vs Actual Potential</h3>
-                {candidateAnalytics.length === 0 ? (
-                  <div className="h-[500px] flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-6xl mb-4">📊</div>
-                      <div className="text-gray-400 text-xl mb-2">No Analysis Data Available</div>
-                      <div className="text-gray-500">Upload CVs and run analysis from Dashboard to see scatter plot visualization</div>
-                    </div>
-                  </div>
-                ) : (
-                <>
                 <ResponsiveContainer width="100%" height={500}>
                   <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -721,8 +803,6 @@ export default function Analytics() {
                     💡 <strong>Insight:</strong> {candidateAnalytics.filter(c => c.isRescued).length} candidates were rejected by ATS but have high potential scores. These represent valuable talent that might be lost without semantic analysis.
                   </p>
                 </div>
-                </>
-                )}
               </div>
             )}
 
@@ -904,12 +984,6 @@ export default function Analytics() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h4 className="font-semibold text-xl mb-4 text-white">❌ Rejected Candidates</h4>
-                  {candidateAnalytics.filter(c => c.status === 'rejected').length === 0 ? (
-                    <div className="bg-gray-800/30 border-2 border-dashed border-gray-700 rounded-lg p-12 text-center">
-                      <div className="text-gray-400 text-lg mb-2">📊 No Analysis Data Yet</div>
-                      <div className="text-gray-500 text-sm">Run analysis from Dashboard to see real candidate data here</div>
-                    </div>
-                  ) : (
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                     {candidateAnalytics.filter(c => c.status === 'rejected').sort((a, b) => b.actualPotential - a.actualPotential).map(c => (
                       <div 
@@ -935,17 +1009,10 @@ export default function Analytics() {
                       </div>
                     ))}
                   </div>
-                  )}
                 </div>
 
                 <div>
                   <h4 className="font-semibold text-xl mb-4 text-white">✅ Accepted Candidates</h4>
-                  {candidateAnalytics.filter(c => c.status === 'accepted').length === 0 ? (
-                    <div className="bg-gray-800/30 border-2 border-dashed border-gray-700 rounded-lg p-12 text-center">
-                      <div className="text-gray-400 text-lg mb-2">📊 No Analysis Data Yet</div>
-                      <div className="text-gray-500 text-sm">Run analysis from Dashboard to see real candidate data here</div>
-                    </div>
-                  ) : (
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                     {candidateAnalytics.filter(c => c.status === 'accepted').sort((a, b) => b.actualPotential - a.actualPotential).map(c => (
                       <div 
@@ -959,7 +1026,6 @@ export default function Analytics() {
                       </div>
                     ))}
                   </div>
-                  )}
                 </div>
               </div>
             )}

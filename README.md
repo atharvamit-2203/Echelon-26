@@ -1,182 +1,191 @@
-# 🛡️ Fair-Hire Sentinel
+# Production-Ready Fair-Hire Sentinel
 
-**Solving the "AI Rejected a Genius" Problem**
-
-An AI-powered safety layer that acts as a watchdog over hiring software (ATS) to prevent qualified candidates from being unfairly rejected due to keyword bias.
-
-## 🎯 What We Built
-
-### The Problem
-- Experienced professionals get rejected because they use "Performance Targets" instead of "KPI"
-- ATS systems create unfair bias against workers who use different professional vocabulary
-- 90% of experts are being rejected by broken keyword filters
-
-### The Solution: Fair-Hire Sentinel
-A three-component AI system:
-
-1. **🔍 Bias Smoke Detector** - Watches ATS trash folder, uses Four-Fifths Rule to detect discrimination
-2. **🧠 Semantic Rescuer** - Uses NLP to understand meaning, not spelling (finds "Strategic Revenue Pipelines" = "CRM Strategy")
-3. **⚠️ Recruiter Dashboard** - Red alerts: "Warning! You just rejected a promising candidate with 98% skill match"
+A comprehensive AI-powered ATS bias detection system with enterprise-grade infrastructure.
 
 ## 🚀 Quick Start
 
-### Option 1: Automated Startup (Recommended)
+### Prerequisites
+- Docker & Docker Compose
+- Node.js 20+
+- Python 3.11+
+- Git
+
+### One-Command Setup
 ```bash
-# Windows: Double-click this file to start both frontend and backend
-start_full_system.bat
+# Linux/Mac
+./scripts/setup.sh && make up
+
+# Windows
+scripts\setup.bat
+docker-compose up -d
 ```
 
-This will start:
-- Backend API at `http://localhost:8000`
-- Frontend UI at `http://localhost:3000`
-- API Documentation at `http://localhost:8000/docs`
+Visit:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
 
-### Option 2: Manual Startup
+## 📁 Project Structure
 
-#### Backend (Terminal 1)
+```
+Echelon/
+├── backend/                 # FastAPI backend
+│   ├── app/
+│   │   ├── api/v1/         # Versioned API endpoints
+│   │   ├── core/           # Config, security, logging
+│   │   ├── models/         # Pydantic models
+│   │   ├── services/       # Business logic
+│   │   └── ml/             # ML models
+│   ├── tests/              # Backend tests
+│   └── Dockerfile
+├── frontend/               # Next.js frontend
+│   ├── app/                # Next.js app directory
+│   ├── components/         # React components
+│   ├── lib/                # Utilities & API client
+│   ├── hooks/              # Custom hooks
+│   ├── tests/              # Frontend tests
+│   └── Dockerfile
+├── infrastructure/         # Deployment configs
+│   └── kubernetes/         # K8s manifests
+├── scripts/                # Automation scripts
+├── .github/workflows/      # CI/CD pipelines
+└── docker-compose.yml      # Local development stack
+```
+
+## 🏗️ Architecture
+
+### Backend (FastAPI)
+- **Clean Architecture**: Separation of concerns with layers
+- **API Versioning**: `/api/v1/` prefix
+- **Dependency Injection**: Service layer pattern
+- **Structured Logging**: JSON logs with context
+- **Error Handling**: Custom exceptions with proper HTTP codes
+- **Security**: JWT authentication, password hashing
+- **Validation**: Pydantic models with strict validation
+
+### Frontend (Next.js 15)
+- **State Management**: Zustand for global state
+- **Data Fetching**: React Query with caching
+- **Type Safety**: TypeScript strict mode
+- **Form Handling**: React Hook Form + Zod
+- **Styling**: Tailwind CSS
+- **Testing**: Jest + React Testing Library
+
+### Infrastructure
+- **Containerization**: Docker multi-stage builds
+- **Orchestration**: Kubernetes with auto-scaling
+- **CI/CD**: GitHub Actions with automated testing
+- **Monitoring**: Health checks, structured logging
+- **Security**: Secrets management, vulnerability scanning
+
+## 🧪 Testing
+
+### Backend Tests
 ```bash
 cd backend
-# Create virtual environment (first time only)
-python -m venv venv
-# Activate it
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Mac/Linux
-# Install dependencies
-pip install -r requirements.txt
-# Start server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+pytest --cov=app --cov-report=html
 ```
 
-#### Frontend (Terminal 2)
+### Frontend Tests
 ```bash
 cd frontend
-npm install
-npm run dev
+npm test -- --coverage
 ```
 
-## 🎮 How to Use
-
-### 1. Upload CVs
-- Go to **CV Management** page (`http://localhost:3000/cvs`)
-- Drag and drop CV files or use the upload form
-- Add candidate information
-
-### 2. Start Analysis
-Click **"Start ATS Analysis"** button on:
-- CV Management page
-- Dashboard page
-- Analytics page
-
-### 3. View Results
-- Navigate to **Analytics** page to see:
-  - ATS match percentages
-  - Missing keywords
-  - Bias detection results
-  - Rescued candidates
-- Click on individual resumes for detailed analysis
-
-### 4. Monitor Dashboard
-- View real-time statistics
-- See rescued candidates
-- Check bias alerts
-
-## 🧪 Testing the System
-
-### Automated Test
+### E2E Tests
 ```bash
-# Run this after starting the servers
-python test_system.py
+npm run test:e2e
 ```
 
-### Manual Test
-1. Open http://localhost:3000/dashboard
-2. Click "Start Fair-Hire Sentinel" 
-3. Watch the three components work:
-   - ATS Screening Simulation
-   - Bias Smoke Detector  
-   - Semantic Rescuer
-   - Recruiter Alert
-4. See red rescue alerts appear
-5. Click "Rescue Now" to save candidates
+## 🚢 Deployment
 
-## 📊 What You'll See
-
-### Dashboard Features
-- **Real-time monitoring** of ATS screening
-- **Live bias detection** using Four-Fifths Rule
-- **Semantic analysis** progress tracking
-- **Red rescue alerts** for qualified rejected candidates
-
-### Sample Rescue Scenarios
-- **Sarah Mitchell (47, Female)** - Used "Performance Targets" instead of "KPI" → 98% semantic match
-- **Dr. Meera Krishnan (49, Female)** - Said "Performance Metrics" instead of "KPI" → Rescued from trash
-- **Rajesh Gupta (52, Male)** - Age filter bias detected → Flagged for review
-
-## 🔧 System Architecture
-
-```
-Fair-Hire Sentinel
-├── Backend (FastAPI)
-│   ├── fair_hire_sentinel.py    # Main AI components
-│   ├── ats_analysis.py          # ATS simulation
-│   ├── firebase_service.py      # Database
-│   └── main.py                  # API endpoints
-├── Frontend (Next.js)
-│   ├── dashboard/page.tsx       # Main dashboard
-│   └── BatchAnalysisPanel.tsx   # Analysis interface
-└── Database (Firebase)
-    ├── CVs collection
-    ├── Alerts collection
-    └── Metrics collection
+### Local Development
+```bash
+make up          # Start all services
+make logs        # View logs
+make test        # Run tests
+make down        # Stop services
 ```
 
-## 🎮 Demo Flow
+### Staging
+```bash
+./scripts/deploy.sh staging
+```
 
-1. **Upload CVs** - System has sample biased data
-2. **Run Analysis** - Click "Start Fair-Hire Sentinel"
-3. **Watch Components**:
-   - 🔍 Bias Smoke Detector finds discrimination patterns
-   - 🧠 Semantic Rescuer analyzes rejected CVs
-   - ⚠️ Dashboard generates rescue alerts
-4. **See Results** - Red alerts show rescued candidates
-5. **Take Action** - Click "Rescue Now" to save them
+### Production
+```bash
+./scripts/deploy.sh production
+```
 
-## 📈 Key Metrics Tracked
+### Kubernetes
+```bash
+kubectl apply -f infrastructure/kubernetes/
+kubectl get pods -n fairhire
+```
 
-- **Total Candidates Processed**
-- **ATS Rejection Rate** 
-- **Candidates Rescued**
-- **Active Bias Alerts**
-- **Semantic Match Scores**
+## 📊 Features
 
-## 🔗 URLs
+### ✅ Implemented
+- **CV Management**: Upload, analyze, and manage candidate CVs
+- **Bias Detection**: ML-powered bias detection using semantic analysis
+- **ATS Simulation**: Simulate ATS screening with keyword matching
+- **Candidate Rescue**: Identify and rescue qualified candidates
+- **Analytics Dashboard**: Real-time metrics and visualizations
+- **RESTful API**: Versioned API with comprehensive documentation
+- **Authentication**: JWT-based authentication
+- **Docker Support**: Full containerization
+- **CI/CD Pipeline**: Automated testing and deployment
+- **Kubernetes**: Production-ready K8s manifests
+- **Testing**: Unit, integration, and E2E tests
+- **Monitoring**: Health checks and structured logging
 
-- **Frontend Dashboard**: http://localhost:3000/dashboard
-- **Backend API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
+### 🔜 Roadmap
+- [ ] Real-time notifications (WebSockets)
+- [ ] Advanced ML models (BERT, GPT integration)
+- [ ] Multi-language support
+- [ ] Mobile app (React Native)
+- [ ] Advanced analytics (Grafana dashboards)
+- [ ] Audit logging
+- [ ] Role-based access control (RBAC)
+- [ ] Export functionality (PDF/CSV)
 
-## 🛠️ Technologies Used
+## 🔐 Security
 
-- **Backend**: FastAPI, Python, Firebase
-- **Frontend**: Next.js, React, TypeScript, Tailwind CSS
-- **AI/ML**: Sentence-BERT, Scikit-learn, Semantic Analysis
-- **Database**: Firebase Firestore
+- **Authentication**: JWT tokens with secure password hashing
+- **Authorization**: Role-based access control
+- **Input Validation**: Strict Pydantic validation
+- **SQL Injection**: Parameterized queries
+- **XSS Protection**: Content Security Policy
+- **CSRF Protection**: Token-based protection
+- **Secrets Management**: Environment variables, never committed
+- **Vulnerability Scanning**: Automated Trivy scans in CI
 
-## 📝 Sample Data
+## 📚 Documentation
 
-The system includes sample CVs that demonstrate the bias problem:
-- Experienced professionals (45+) with semantic skill matches
-- Different vocabulary usage (Performance Targets vs KPI)
-- Gender and age bias patterns
-- Real-world rejection scenarios
+- [Deployment Guide](DEPLOYMENT.md)
+- [API Documentation](http://localhost:8000/docs)
+- [Implementation Plan](C:\Users\Amit\.gemini\antigravity\brain\80387aee-3a66-42fb-a912-d22acd29831b\implementation_plan.md)
+- [Walkthrough](C:\Users\Amit\.gemini\antigravity\brain\80387aee-3a66-42fb-a912-d22acd29831b\walkthrough.md)
 
-## 🎯 Success Criteria
+## 🤝 Contributing
 
-✅ **Bias Detection**: System identifies discrimination patterns using Four-Fifths Rule  
-✅ **Semantic Rescue**: Finds qualified candidates rejected for vocabulary differences  
-✅ **Real-time Alerts**: Dashboard shows immediate rescue notifications  
-✅ **Actionable Interface**: One-click candidate rescue functionality  
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
+## 🙏 Acknowledgments
+
+- FastAPI for the excellent web framework
+- Next.js for the React framework
+- Sentence-BERT for semantic analysis
+- Firebase for backend services
 
 ---
 
-**Built to solve the "AI Rejected a Genius" problem and make hiring fair for everyone.**
+**Built with ❤️ to make hiring fair for everyone**

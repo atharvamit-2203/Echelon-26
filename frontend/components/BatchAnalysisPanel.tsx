@@ -23,6 +23,7 @@ export default function BatchAnalysisPanel() {
     setCurrentStep(0);
     
     try {
+      // Start the backend analysis
       const response = await fetch('http://localhost:8000/api/start-batch-analysis', {
         method: 'POST',
         headers: {
@@ -33,18 +34,18 @@ export default function BatchAnalysisPanel() {
       const data = await response.json();
       
       if (response.ok) {
-        // Simulate step progression
-        simulateStepProgression();
-        // Poll for status updates
-        pollAnalysisStatus();
+        // Immediately redirect to analytics page with live progress
+        window.location.href = '/analytics?analyzing=true';
       } else {
         setStatus('error');
         setIsRunning(false);
+        alert('Failed to start analysis. Please check the backend server.');
       }
     } catch (error) {
       console.error('Error starting batch analysis:', error);
       setStatus('error');
       setIsRunning(false);
+      alert('Error starting analysis. Please ensure backend is running.');
     }
   };
 
@@ -210,19 +211,97 @@ export default function BatchAnalysisPanel() {
         )}
 
         {status === 'completed' && results && (
-          <div className="mt-4 bg-green-900/20 border border-green-700/50 rounded-lg p-3">
-            <h4 className="font-medium text-green-400 mb-2">✅ Fair-Hire Sentinel Results</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="text-gray-300">
-                <span className="text-gray-500">Bias Alerts:</span>
-                <span className="ml-2 font-medium text-white">{results.active_alerts}</span>
-              </div>
-              <div className="text-gray-300">
-                <span className="text-gray-500">Last Scan:</span>
-                <span className="ml-2 font-medium text-white">
-                  {results.last_updated ? new Date(results.last_updated.seconds * 1000).toLocaleTimeString() : 'Just now'}
-                </span>
-              </div>
+          <div className="mt-4 space-y-3">
+            <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-4">
+              <h4 className="font-medium text-green-400 mb-3 text-lg">✅ Fair-Hire Sentinel Analysis Complete</h4>
+              
+              {results.analysis_summary && (
+                <div className="space-y-3">
+                  <div className="bg-gray-800/50 rounded-lg p-3">
+                    <div className="text-sm font-medium text-purple-300 mb-2">
+                      📋 Screening Criteria Used:
+                    </div>
+                    <div className="text-gray-300">
+                      {typeof results.analysis_summary.job_criteria === 'string' 
+                        ? results.analysis_summary.job_criteria 
+                        : `${results.analysis_summary.job_criteria?.length || 0} keywords`}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-blue-400">
+                        {results.analysis_summary.total_cvs_analyzed || 0}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">Total CVs</div>
+                    </div>
+                    
+                    <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-green-400">
+                        {results.analysis_summary.immediate_interviews || 0}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">Strong Matches</div>
+                    </div>
+                    
+                    <div className="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-amber-400">
+                        {results.analysis_summary.rescued || 0}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">Rescued</div>
+                    </div>
+                    
+                    <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-red-400">
+                        {results.analysis_summary.rejected || 0}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">Rejected</div>
+                    </div>
+                  </div>
+                  
+                  {results.analysis_summary.peer_comparison_cases > 0 && (
+                    <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3">
+                      <div className="text-sm font-medium text-red-400">
+                        ⚠️ {results.analysis_summary.peer_comparison_cases} Disparate Treatment Case{results.analysis_summary.peer_comparison_cases > 1 ? 's' : ''} Detected
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Similar candidates received different screening outcomes
+                      </div>
+                    </div>
+                  )}
+                  
+                  {results.analysis_summary.model_updated && results.analysis_summary.skills_learned > 0 && (
+                    <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-3">
+                      <div className="text-sm font-medium text-purple-400">
+                        🎓 Model Auto-Updated: Learned {results.analysis_summary.skills_learned} New Industry Skills
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        System continuously learns from CVs to stay industry-relevant
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {!results.analysis_summary && (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="text-gray-300">
+                    <span className="text-gray-500">Bias Alerts:</span>
+                    <span className="ml-2 font-medium text-white">{results.active_alerts}</span>
+                  </div>
+                  <div className="text-gray-300">
+                    <span className="text-gray-500">Last Scan:</span>
+                    <span className="ml-2 font-medium text-white">
+                      {results.last_updated ? new Date(results.last_updated.seconds * 1000).toLocaleTimeString() : 'Just now'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-cyan-900/20 border border-cyan-700/50 rounded-lg p-3">
+              <p className="text-sm text-cyan-300">
+                💡 View detailed analysis in <span className="font-semibold">Visual Analytics</span> and check <span className="font-semibold">Alerts</span> for bias patterns
+              </p>
             </div>
           </div>
         )}

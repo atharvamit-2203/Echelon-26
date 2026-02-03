@@ -1,7 +1,7 @@
-from fastapi import FastAPI, File, UploadFile, Form, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, Form, BackgroundTasks, Body, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from firebase_service import FirebaseService
 from ats_analysis import ATSAnalysisService
 from ml_fair_hire_sentinel import FairHireSentinel
@@ -10,9 +10,13 @@ from datetime import datetime
 import asyncio
 import os
 from dotenv import load_dotenv
+from uuid import uuid4
 
 # Load environment variables
 load_dotenv()
+
+# Frontend origin from environment with sensible default
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
 app = FastAPI(title="Fair-Hire Sentinel API")
 
@@ -27,7 +31,7 @@ except Exception as e:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[FRONTEND_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,9 +77,43 @@ class HomePageData(BaseModel):
     age_stats: dict
     gender_stats: dict
 
+# ==== New Models for Companies/Roles/Policies ====
+class CompanyCreate(BaseModel):
+    name: str
+    industry: str
+    locations: Optional[List[str]] = []
+
+class PolicyRules(BaseModel):
+    hard_constraints: Dict[str, Any] = {}
+    soft_constraints: Dict[str, Any] = {}
+
+class RoleCreate(BaseModel):
+    title: str
+    family: Optional[str] = None
+    required_skills: List[str] = []
+    optional_skills: List[str] = []
+    required_licenses: List[str] = []
+    required_certifications: List[str] = []
+    min_experience: Optional[int] = None
+    max_experience: Optional[int] = None
+    location: Optional[str] = None
+
+class MatchRequest(BaseModel):
+    candidateId: Optional[str] = None
+    # Optional: allow direct CV payload
+    cv: Optional[Dict[str, Any]] = None
+
 @app.get("/")
 def read_root():
     return {"message": "Fair-Hire Sentinel API"}
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "fair-hire-sentinel-backend",
+        "version": "1.0.0"
+    }
 
 @app.get("/api/home", response_model=HomePageData)
 def get_home_data():
@@ -246,26 +284,165 @@ async def bulk_upload_cvs(cvs: List[dict]):
         return {"error": str(e)}
 
 @app.post("/api/upload-cv-file")
-async def upload_cv_file(file: UploadFile = File(...)):
+async def upload_cv_file(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    age: int = Form(...),
+    gender: str = Form(...),
+    experience: int = Form(...),
+    education: str = Form(...),
+    location: str = Form(...),
+    currentRole: str = Form(...),
+    expectedSalary: str = Form(...)
+):
     try:
-        # Save file to Firebase Storage
-        blob = bucket.blob(f"cvs/{file.filename}")
-        contents = await file.read()
-        blob.upload_from_string(contents, content_type=file.content_type)
-        
-        # Generate CV data from filename (simplified)
+        # Generate candidate ID
         candidate_id = f"CV{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        # Read file contents
+        contents = await file.read()
+        
+        # Parse CV content based on file type
+        extracted_text = ""
+        extracted_skills = []
+        
+        try:
+            if file.filename.lower().endswith('.pdf'):
+                import PyPDF2
+                from io import BytesIO
+                pdf_reader = PyPDF2.PdfReader(BytesIO(contents))
+                for page in pdf_reader.pages:
+                    extracted_text += page.extract_text() + "\n"
+            
+            elif file.filename.lower().endswith('.docx'):
+                import docx
+                from io import BytesIO
+                doc = docx.Document(BytesIO(contents))
+                for paragraph in doc.paragraphs:
+                    extracted_text += paragraph.text + "\n"
+            
+            elif file.filename.lower().endswith('.txt'):
+                extracted_text = contents.decode('utf-8')
+            
+            else:
+                # Try to decode as text
+                try:
+                    extracted_text = contents.decode('utf-8')
+                except:
+                    extracted_text = "Could not extract text from file"
+            
+            # Extract skills using simple keyword matching
+            if extracted_text and ml_sentinel:
+                try:
+                    # Use ML to extract skills from text
+                    skill_keywords = ['python', 'javascript', 'react', 'node', 'sql', 'aws', 'docker', 'kubernetes', 'git', 'agile', 'scrum', 'java', 'c++', 'html', 'css', 'mongodb', 'postgresql', 'redis', 'tensorflow', 'pytorch', 'machine learning', 'data science', 'api', 'rest', 'graphql', 'microservices', 'devops', 'ci/cd', 'jenkins', 'terraform', 'ansible']
+                    text_lower = extracted_text.lower()
+                    extracted_skills = [skill for skill in skill_keywords if skill in text_lower]
+                    
+                    # Limit to top 10 skills
+                    extracted_skills = extracted_skills[:10]
+                except Exception as e:
+                    print(f"Error extracting skills: {e}")
+                    extracted_skills = ["To be updated"]
+            
+            if not extracted_skills:
+                extracted_skills = ["To be updated"]
+                
+        except Exception as e:
+            print(f"Error parsing CV file: {e}")
+            extracted_text = "Error parsing file content"
+            extracted_skills = ["To be updated"]
+        
+        # Save file to Firebase Storage (optional)
+        file_url = None
+        try:
+            blob = FirebaseService.bucket.blob(f"cvs/{file.filename}")
+            blob.upload_from_string(contents, content_type=file.content_type)
+            file_url = blob.public_url
+        except Exception as e:
+            print(f"Warning: Could not save file to Firebase Storage: {e}")
+        
+        # Create CV data with extracted information
         cv_data = {
             "candidateId": candidate_id,
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "age": age,
+            "gender": gender,
+            "experience": experience,
+            "skills": extracted_skills,
+            "education": education,
+            "location": location,
+            "currentRole": currentRole,
+            "expectedSalary": expectedSalary,
             "fileName": file.filename,
-            "fileUrl": blob.public_url,
-            "uploadedAt": datetime.now(),
-            "status": "pending_extraction"
+            "fileUrl": file_url,
+            "extractedText": extracted_text[:1000],  # Store first 1000 chars
+            "status": "under_review",
+            "uploadedAt": datetime.now()
         }
         
+        # Save to Firebase
         FirebaseService.add_cv(cv_data)
-        return {"message": "CV uploaded successfully", "candidateId": candidate_id}
+        
+        return {
+            "message": "CV uploaded and parsed successfully",
+            "candidateId": candidate_id,
+            "cv": cv_data,
+            "file_info": {
+                "filename": file.filename,
+                "file_size": len(contents),
+                "extracted_skills": extracted_skills,
+                "text_preview": extracted_text[:200] + "..." if len(extracted_text) > 200 else extracted_text
+            }
+        }
     except Exception as e:
+        print(f"Error uploading CV: {e}")
+        return {"error": str(e)}
+
+@app.post("/api/upload-reference-cv")
+async def upload_reference_cv(
+    file: UploadFile = File(...),
+    jobTitle: str = Form(...)
+):
+    try:
+        # Generate reference CV ID
+        ref_id = f"REF{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        # Save file to Firebase Storage
+        try:
+            blob = FirebaseService.bucket.blob(f"reference_cvs/{file.filename}")
+            contents = await file.read()
+            blob.upload_from_string(contents, content_type=file.content_type)
+            file_url = blob.public_url
+        except Exception as e:
+            print(f"Warning: Could not save reference CV to Firebase Storage: {e}")
+            file_url = None
+        
+        # Save reference CV data
+        ref_data = {
+            "referenceId": ref_id,
+            "jobTitle": jobTitle,
+            "fileName": file.filename,
+            "fileUrl": file_url,
+            "uploadedAt": datetime.now(),
+            "status": "active"
+        }
+        
+        # Save to Firebase
+        FirebaseService.db.collection('reference_cvs').document(ref_id).set(ref_data)
+        
+        return {
+            "message": "Reference CV uploaded successfully",
+            "referenceId": ref_id,
+            "jobTitle": jobTitle,
+            "filename": file.filename
+        }
+    except Exception as e:
+        print(f"Error uploading reference CV: {e}")
         return {"error": str(e)}
 
 @app.post("/api/cvs")
@@ -316,13 +493,11 @@ async def add_cv(
 @app.get("/api/cvs")
 def get_cvs():
     try:
-        # Get CVs from both Firebase and file system
-        firebase_cvs = FirebaseService.get_cvs()
+        # Get CVs ONLY from file system (sample_cvs folder)
+        # Ignore Firestore CVs to avoid duplicates and show only ML-processed CVs
         file_cvs = FirebaseService.get_cvs_from_files()
         
-        # Combine both sources
-        all_cvs = firebase_cvs + file_cvs
-        return {"cvs": all_cvs}
+        return {"cvs": file_cvs, "total": len(file_cvs)}
     except Exception as e:
         return {"error": str(e)}
 
@@ -592,6 +767,40 @@ def get_rescue_alerts():
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/api/active-job-criteria")
+def get_active_job_criteria():
+    """Get active job criteria"""
+    try:
+        # Try to get from Firebase first
+        criteria_ref = FirebaseService.db.collection('job_criteria').where('status', '==', 'active').order_by('created_at', direction='DESCENDING').limit(1)
+        criteria_docs = list(criteria_ref.stream())
+        if criteria_docs:
+            criteria_data = criteria_docs[0].to_dict()
+            return {
+                "jobId": criteria_docs[0].id,
+                "title": criteria_data.get('job_title', 'Software Engineer'),
+                "keywords": criteria_data.get('keywords', []),
+                "minExperience": criteria_data.get('min_experience', 2),
+                "location": criteria_data.get('location', 'Remote')
+            }
+        else:
+            # Return default criteria
+            return {
+                "jobId": "default",
+                "title": "Software Engineer",
+                "keywords": ["Python", "JavaScript", "React", "FastAPI"],
+                "minExperience": 2,
+                "location": "Remote"
+            }
+    except Exception as e:
+        return {
+            "jobId": "default",
+            "title": "Software Engineer",
+            "keywords": ["Python", "JavaScript", "React", "FastAPI"],
+            "minExperience": 2,
+            "location": "Remote"
+        }
+
 @app.post("/api/semantic-analysis")
 def semantic_analysis(data: dict):
     try:
@@ -766,18 +975,30 @@ def analyze_ml_bias(data: dict):
             "bias_score": 0.0
         }
 
-@app.post("/api/analyze/fairness")
 def generate_bias_alerts(fairness_issues, biased_skills, total_cvs):
     """Auto-generate alerts based on detected bias patterns"""
     try:
         from datetime import datetime
         alerts = []
         
+        # Check if alerts already exist to avoid duplicates
+        existing_alerts = {}
+        try:
+            existing_docs = FirebaseService.db.collection('alerts').where('active', '==', True).stream()
+            for doc in existing_docs:
+                alert_data = doc.to_dict()
+                alert_type = alert_data.get('type')
+                if alert_type:
+                    existing_alerts[alert_type] = doc.id
+        except Exception as e:
+            print(f"Could not check existing alerts: {e}")
+        
         # Age bias alerts
         age_bias_issues = [i for i in fairness_issues if i.get('type') == 'age_bias']
         if len(age_bias_issues) > 0:
+            alert_id = existing_alerts.get('age_discrimination', f'age_bias_static')
             alerts.append({
-                'id': f'age_bias_{datetime.now().timestamp()}',
+                'id': alert_id,
                 'type': 'age_discrimination',
                 'severity': 'high' if len(age_bias_issues) > 3 else 'medium',
                 'title': 'Age-Based Bias Detected',
@@ -796,8 +1017,9 @@ def generate_bias_alerts(fairness_issues, biased_skills, total_cvs):
         if len(biased_skills) > 0:
             top_biased_skill = biased_skills[0]
             skill_list = ', '.join([s['skill'].title() for s in biased_skills[:3]])
+            alert_id = existing_alerts.get('skill_keyword_bias', f'skill_bias_static')
             alerts.append({
-                'id': f'skill_bias_{datetime.now().timestamp()}',
+                'id': alert_id,
                 'type': 'skill_keyword_bias',
                 'severity': 'high',
                 'title': f'Skill-Based Bias: {top_biased_skill["skill"].title()}',
@@ -816,8 +1038,9 @@ def generate_bias_alerts(fairness_issues, biased_skills, total_cvs):
         # Gender bias alerts
         gender_bias_issues = [i for i in fairness_issues if i.get('demographic_factor') == 'gender']
         if len(gender_bias_issues) > 0:
+            alert_id = existing_alerts.get('gender_bias', f'gender_bias_static')
             alerts.append({
-                'id': f'gender_bias_{datetime.now().timestamp()}',
+                'id': alert_id,
                 'type': 'gender_bias',
                 'severity': 'critical',
                 'title': 'Gender-Based Disparate Treatment',
@@ -832,16 +1055,17 @@ def generate_bias_alerts(fairness_issues, biased_skills, total_cvs):
                 'active': True
             })
         
-        # Save alerts to Firestore
+        # Update or create alerts in Firestore (updates existing, doesn't duplicate)
         for alert in alerts:
             FirebaseService.db.collection('alerts').document(alert['id']).set(alert)
         
-        print(f"✓ Generated {len(alerts)} alerts and saved to Firestore\n")
+        print(f"✓ Updated {len(alerts)} alerts in Firestore (no duplicates)\n")
         return alerts
     except Exception as e:
         print(f"Error generating alerts: {e}")
         return []
 
+@app.post("/api/analyze/fairness")
 def analyze_fairness(data: dict):
     """
     ML-based fairness scoring endpoint
@@ -862,18 +1086,11 @@ def analyze_fairness(data: dict):
         print(f"  - Firestore CVs: {len(cvs)}")
         print(f"  - File CVs: {len(cv_files)}")
         
-        # Deduplicate by name (in case Firestore has same CVs as files)
-        all_cvs = cvs + cv_files
-        seen_names = set()
-        cvs = []
-        for cv in all_cvs:
-            name = cv.get('name', 'Unknown').strip().lower()
-            if name not in seen_names and name != 'unknown':
-                seen_names.add(name)
-                cvs.append(cv)
+        # Use ONLY file CVs (sample_cvs folder) to avoid duplicates and confusion
+        # Firestore CVs are legacy sample data that may conflict with file-based system
+        cvs = cv_files
         
-        print(f"  - Total combined: {len(all_cvs)}")
-        print(f"  - After deduplication: {len(cvs)}\n")
+        print(f"  - Using file CVs only: {len(cvs)}\\n")
         
         if not cvs or len(cvs) < 2:
             return {
@@ -1043,3 +1260,26 @@ def analyze_fairness(data: dict):
             "score": 0.0,
             "candidates_analyzed": []
         }
+
+@app.websocket("/api/v1/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    client_id = str(uuid4())
+    print(f"Client {client_id} connected")
+    
+    try:
+        while True:
+            # Send periodic updates with proper data structure
+            await asyncio.sleep(30)  # Reduce frequency to every 30 seconds
+            await websocket.send_json({
+                "type": "status_update",
+                "timestamp": datetime.now().isoformat(),
+                "data": {
+                    "message": "System monitoring active - Fair-Hire Sentinel running",
+                    "status": "healthy"
+                }
+            })
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    finally:
+        print(f"Client {client_id} disconnected")

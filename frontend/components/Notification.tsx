@@ -52,7 +52,7 @@ export default function Notification({ type, title, message, duration = 5000, on
   return (
     <div 
       onClick={onClick}
-      className={`fixed top-4 right-4 z-50 max-w-md w-full border rounded-lg shadow-2xl p-4 ${bgColors[type]} ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''} animate-slide-in`}
+      className={`fixed top-20 right-4 z-40 max-w-md w-full border rounded-lg shadow-2xl p-4 ${bgColors[type]} ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''} animate-slide-in`}
     >
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0">{icons[type]}</div>

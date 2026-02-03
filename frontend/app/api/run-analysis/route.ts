@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const API_BASE_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 // Helper to call backend with timeout
 async function callBackend(path: string, body?: any, method: 'GET'|'POST' = 'POST') {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 30000);
   try {
-    const res = await fetch(`http://localhost:8000${path}` , {
+    const res = await fetch(`${API_BASE_URL}${path}` , {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: method === 'POST' ? JSON.stringify(body || {}) : undefined,

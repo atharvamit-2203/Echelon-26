@@ -1,8 +1,27 @@
 import os
-import google.generativeai as genai
 from datetime import datetime
 from typing import List, Dict
 import json
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+import numpy as np
+try:
+    import spacy
+    nlp = spacy.load("en_core_web_sm")
+    print("✓ Successfully loaded spaCy model: en_core_web_sm")
+except Exception as e:
+    nlp = None
+    print("=" * 80)
+    print("⚠️  WARNING: spaCy model 'en_core_web_sm' not loaded")
+    print("=" * 80)
+    print(f"Error details: {type(e).__name__}: {str(e)}")
+    print("\nTo fix this issue, run one of these commands:")
+    print("  1. python -m spacy download en_core_web_sm")
+    print("  2. pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl")
+    print("\nImpact: Some NLP features may be limited, but core ML bias detection will still work.")
+    print("=" * 80)
 
 class FairHireSentinel:
     # Define multiple job families with their key skills
@@ -49,94 +68,111 @@ class FairHireSentinel:
         }
     }
     
-    def __init__(self, api_key: str = None):
-        # Configure Gemini API
-        api_key = api_key or os.getenv('GEMINI_API_KEY')
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY not found. Please set it in environment variables.")
-        
-        genai.configure(api_key=api_key)
-        # Use Gemini 2.0-flash for faster responses
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        
-    def extract_required_skills(self, job_title: str) -> List[str]:
-        """Extract required skills and keywords for a job position using AI"""
+    def __init__(self):
+        """Initialize ML models for semantic analysis"""
+        print("Loading ML models...")
         try:
-            # Determine if this is a technical role
+            # Load sentence transformer for semantic similarity
+            self.semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+            print("✓ Loaded semantic similarity model (all-MiniLM-L6-v2)")
+        except Exception as e:
+            print(f"Warning: Could not load sentence-transformers model: {e}")
+            self.semantic_model = None
+        
+        # TF-IDF vectorizer for keyword matching
+        self.tfidf_vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
+        print("✓ Initialized TF-IDF vectorizer")
+        
+        # Predefined skill mappings for common technical roles
+        self._initialize_skill_database()
+        
+    def _initialize_skill_database(self):
+        """Initialize comprehensive skill database for different roles"""
+        self.role_skills_db = {
+            'software engineer': ['Python', 'Java', 'JavaScript', 'Git', 'API Development', 'Database', 'SQL', 'AWS', 'Docker', 'REST API', 'Problem Solving', 'Communication', 'Agile', 'CI/CD', 'Testing'],
+            'data scientist': ['Python', 'Machine Learning', 'Data Analysis', 'SQL', 'Statistics', 'TensorFlow', 'PyTorch', 'Pandas', 'NumPy', 'Data Visualization', 'Problem Solving', 'Communication', 'R', 'Jupyter', 'Deep Learning'],
+            'devops': ['AWS', 'Azure', 'Docker', 'Kubernetes', 'CI/CD', 'Jenkins', 'Terraform', 'Linux', 'Shell Scripting', 'Git', 'Ansible', 'Monitoring', 'Python', 'Cloud Computing', 'Infrastructure'],
+            'frontend developer': ['JavaScript', 'React', 'HTML', 'CSS', 'TypeScript', 'Git', 'Responsive Design', 'Web Development', 'UI/UX', 'REST API', 'Problem Solving', 'Communication', 'Node.js', 'Redux', 'Testing'],
+            'backend developer': ['Python', 'Java', 'Node.js', 'SQL', 'API Development', 'Database', 'Git', 'Microservices', 'REST API', 'Docker', 'Problem Solving', 'Communication', 'Cloud Computing', 'Security', 'Performance'],
+            'machine learning': ['Python', 'Machine Learning', 'TensorFlow', 'PyTorch', 'Deep Learning', 'Neural Networks', 'NLP', 'Computer Vision', 'Data Analysis', 'Statistics', 'Problem Solving', 'Research', 'Jupyter', 'Scikit-learn', 'Keras'],
+            'product manager': ['Product Strategy', 'Roadmap', 'Agile', 'Scrum', 'User Research', 'Analytics', 'Stakeholder Management', 'Communication', 'Leadership', 'Problem Solving', 'Data Analysis', 'Market Research', 'Jira', 'A/B Testing', 'Customer Focus'],
+            'designer': ['UI Design', 'UX Design', 'Figma', 'Adobe XD', 'Wireframing', 'Prototyping', 'User Research', 'Design Systems', 'Communication', 'Problem Solving', 'Typography', 'Color Theory', 'User Testing', 'Adobe Creative Suite', 'Sketch'],
+            'qa engineer': ['Manual Testing', 'Automation Testing', 'Selenium', 'Test Cases', 'Bug Tracking', 'QA Process', 'API Testing', 'Python', 'Java', 'Problem Solving', 'Communication', 'Attention to Detail', 'Jira', 'Performance Testing', 'Security Testing'],
+            'mobile developer': ['iOS', 'Android', 'Swift', 'Kotlin', 'React Native', 'Flutter', 'Mobile Development', 'API Integration', 'Git', 'UI/UX', 'Problem Solving', 'Communication', 'App Store', 'Testing', 'Performance'],
+            'cloud architect': ['AWS', 'Azure', 'GCP', 'Cloud Architecture', 'Security', 'Networking', 'Infrastructure', 'Terraform', 'Docker', 'Kubernetes', 'Problem Solving', 'Communication', 'Cost Optimization', 'High Availability', 'Disaster Recovery'],
+            'security engineer': ['Security', 'Penetration Testing', 'Security Auditing', 'OWASP', 'Firewall', 'Encryption', 'Network Security', 'Python', 'Linux', 'Problem Solving', 'Communication', 'Incident Response', 'Vulnerability Assessment', 'SIEM', 'Compliance'],
+        }
+    
+    def extract_required_skills(self, job_title: str) -> List[str]:
+        """Extract required skills for a job position using ML-based matching"""
+        try:
+            job_title_lower = job_title.lower()
+            
+            # Direct match from database
+            for role_key, skills in self.role_skills_db.items():
+                if role_key in job_title_lower:
+                    print(f"Found direct match for role: {role_key}")
+                    return skills
+            
+            # Fuzzy matching using semantic similarity
+            if self.semantic_model:
+                job_embedding = self.semantic_model.encode([job_title_lower])[0]
+                best_match = None
+                best_score = 0
+                
+                for role_key, skills in self.role_skills_db.items():
+                    role_embedding = self.semantic_model.encode([role_key])[0]
+                    similarity = cosine_similarity([job_embedding], [role_embedding])[0][0]
+                    
+                    if similarity > best_score:
+                        best_score = similarity
+                        best_match = skills
+                
+                if best_score > 0.5:  # Threshold for acceptable match
+                    print(f"Found semantic match with score: {best_score:.2f}")
+                    return best_match
+            
+            # Fallback: extract skills based on keywords
             tech_keywords = ['engineer', 'developer', 'data', 'software', 'tech', 'programmer', 'analyst', 'scientist', 'devops', 'architect']
-            is_tech_role = any(keyword in job_title.lower() for keyword in tech_keywords)
+            if any(keyword in job_title_lower for keyword in tech_keywords):
+                return ['Python', 'JavaScript', 'Git', 'Problem Solving', 'Communication', 'Teamwork', 'Cloud Computing', 'API Development', 'Database', 'Testing']
             
-            if is_tech_role:
-                prompt = f"""You are an expert technical recruiter for a tech company.
-
-Analyze this job title/position: "{job_title}"
-
-Return a JSON array of 10-15 TECHNICAL skills, programming languages, frameworks, tools, and qualifications required for this role.
-
-Focus on:
-- Programming languages (Python, Java, JavaScript, etc.)
-- Technical frameworks and libraries
-- Cloud platforms (AWS, Azure, GCP)
-- Development tools and methodologies
-- Domain-specific technical skills
-- Relevant certifications
-- Also include 2-3 essential soft skills
-
-Format: ["skill1", "skill2", "skill3", ...]
-
-Return ONLY the JSON array, no explanation.
-
-Required skills:"""
-            else:
-                prompt = f"""You are an expert HR recruiter.
-
-Analyze this job title/position: "{job_title}"
-
-Return a JSON array of 10-12 essential skills, qualifications, and competencies required for this role.
-
-Include both hard skills and soft skills relevant to the position.
-
-Format: ["skill1", "skill2", "skill3", ...]
-
-Return ONLY the JSON array, no explanation.
-
-Required skills:"""
+            return ['Communication', 'Problem Solving', 'Teamwork', 'Leadership', 'Project Management', 'Organization']
             
-            response = self.model.generate_content(prompt)
-            skills_text = response.text.strip()
-            
-            # Remove markdown code blocks if present
-            if '```' in skills_text:
-                skills_text = skills_text.split('```')[1]
-                if skills_text.startswith('json'):
-                    skills_text = skills_text[4:]
-            
-            # Parse JSON array
-            skills = json.loads(skills_text.strip())
-            return skills if isinstance(skills, list) else []
         except Exception as e:
             print(f"Error extracting skills: {e}")
-            # Return default tech skills for tech roles
-            if is_tech_role:
-                return ['Python', 'JavaScript', 'Git', 'Problem Solving', 'Communication', 'Teamwork', 'Cloud Computing', 'API Development']
             return ['Communication', 'Problem Solving', 'Teamwork', 'Leadership']
     
     def calculate_semantic_similarity(self, text1: str, text2: str) -> float:
-        """Calculate semantic similarity between two texts using Gemini API"""
+        """Calculate semantic similarity between two texts using ML models"""
         try:
-            prompt = f"""Analyze the semantic similarity between these two texts on a scale of 0.0 to 1.0.
-Return ONLY a number between 0.0 and 1.0, nothing else.
-
-Text 1: {text1}
-Text 2: {text2}
-
-Similarity score:"""
+            text1 = str(text1).lower().strip()
+            text2 = str(text2).lower().strip()
             
-            response = self.model.generate_content(prompt)
-            score_text = response.text.strip()
-            # Extract number from response
-            score = float(score_text)
-            return max(0.0, min(1.0, score))  # Clamp between 0 and 1
+            if not text1 or not text2:
+                return 0.0
+            
+            # Method 1: Use sentence transformers for semantic similarity (preferred)
+            if self.semantic_model:
+                embeddings = self.semantic_model.encode([text1, text2])
+                similarity = cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
+                return float(max(0.0, min(1.0, similarity)))
+            
+            # Method 2: Fallback to TF-IDF if sentence transformers not available
+            try:
+                tfidf_matrix = self.tfidf_vectorizer.fit_transform([text1, text2])
+                similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+                return float(max(0.0, min(1.0, similarity)))
+            except:
+                # Method 3: Simple word overlap as last resort
+                words1 = set(text1.split())
+                words2 = set(text2.split())
+                if not words1 or not words2:
+                    return 0.0
+                overlap = len(words1 & words2)
+                total = len(words1 | words2)
+                return float(overlap / total if total > 0 else 0.0)
+            
         except Exception as e:
             print(f"Error calculating similarity: {e}")
             return 0.0
