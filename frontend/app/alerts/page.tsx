@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, Clock, Trash2, Eye, Filter } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-import ProtectedRoute from '@/components/ProtectedRoute';
 
 interface Alert {
   id: string;
@@ -194,52 +193,15 @@ export default function AlertsPage() {
         });
       }
       
-      // If no real alerts, use sample data
-      if (combinedAlerts.length === 0) {
-        setAlerts(getDefaultAlerts());
-      } else {
-        setAlerts(combinedAlerts);
-      }
+      // Show only real alerts from APIs
+      setAlerts(combinedAlerts);
     } catch (error) {
       console.error('Error fetching alerts:', error);
-      setAlerts(getDefaultAlerts());
+      setAlerts([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getDefaultAlerts = (): Alert[] => [
-    {
-      id: '1',
-      type: 'bias',
-      title: 'Age Discrimination Detected',
-      description: 'Selection rate disparity exceeds Four-Fifths threshold for 45+ candidates',
-      severity: 'critical',
-      timestamp: '2 hours ago',
-      resolved: false,
-      affectedCandidates: 12,
-      recommendations: [
-        'Review filtering criteria for age-related keywords',
-        'Audit recent rejections of experienced candidates',
-        'Consider semantic matching for alternative qualifications'
-      ]
-    },
-    {
-      id: '2',
-      type: 'bias',
-      title: 'Keyword Toxicity Alert',
-      description: '"Sales Cloud" acting as brand barrier, rejecting 60% of qualified CRM experts',
-      severity: 'high',
-      timestamp: '4 hours ago',
-      resolved: false,
-      affectedCandidates: 8,
-      recommendations: [
-        'Add semantic synonyms (Oracle, HubSpot, Salesforce)',
-        'Implement fuzzy matching for technology keywords',
-        'Manually review rejected candidates with similar skills'
-      ]
-    }
-  ];
 
   const [filter, setFilter] = useState<'all' | 'unresolved' | 'critical'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -284,9 +246,8 @@ export default function AlertsPage() {
   };
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white">
-        <Navbar />
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white">
+      <Navbar />
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
@@ -464,6 +425,5 @@ export default function AlertsPage() {
         </div>
       </div>
     </div>
-    </ProtectedRoute>
   );
 }

@@ -58,6 +58,29 @@ async def analyze_cv(
         request.job_description
     )
     
+    # Update CV status based on analysis result
+    from app.services.cv_service import CVService
+    cv_service = CVService()
+    
+    status_update = {"analyzed": True, "status": "under_review"}
+    
+    if result.get('recommendation') == 'IMMEDIATE_INTERVIEW':
+        status_update['status'] = 'selected'
+    elif result.get('recommendation') == 'RESCUED':
+        status_update['status'] = 'rescued'
+        status_update['rescueReason'] = result.get('rescueReason', '')
+    elif result.get('atsScore', 0) >= 70:
+        status_update['status'] = 'shortlisted'
+    elif result.get('atsScore', 0) < 50:
+        status_update['status'] = 'rejected'
+    
+    status_update['atsScore'] = result.get('atsScore')
+    status_update['matchRate'] = result.get('matchRate')
+    status_update['semanticScore'] = result.get('semanticScore')
+    
+    from app.models.cv import CVUpdate
+    await cv_service.update_cv(request.candidate_id, CVUpdate(**status_update))
+    
     # Send notification in background if requested
     if request.notify:
         background_tasks.add_task(

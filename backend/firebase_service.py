@@ -1,5 +1,6 @@
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
+from google.cloud.firestore_v1.base_query import FieldFilter
 from datetime import datetime
 import json
 import os
@@ -12,10 +13,36 @@ except ImportError:
     print("CV file processor not available - install PyPDF2 and python-docx")
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate(r"D:\Echelon\backend\service-account-key.json")
-firebase_admin.initialize_app(cred, {
-    'storageBucket': 'echelon-99796.firebasestorage.app'
-})
+cred_path = r"D:\Echelon\backend\service-account-key.json"
+cred = credentials.Certificate(cred_path)
+
+configured_bucket = os.getenv("FIREBASE_STORAGE_BUCKET") or os.getenv("FIREBASE_BUCKET")
+project_id = os.getenv("FIREBASE_PROJECT_ID")
+
+# Try to derive project_id from service account if env isn't set.
+if not project_id:
+    try:
+        with open(cred_path, "r", encoding="utf-8") as f:
+            service_account = json.load(f)
+            project_id = service_account.get("project_id")
+    except Exception:
+        project_id = None
+
+storage_bucket = configured_bucket or (f"{project_id}.appspot.com" if project_id else None)
+
+# Normalize accidental Firebase Hosting domain to the actual GCS bucket domain.
+if storage_bucket and storage_bucket.endswith(".firebasestorage.app"):
+    storage_bucket = storage_bucket.replace(".firebasestorage.app", ".appspot.com")
+
+init_options = {}
+if storage_bucket:
+    init_options["storageBucket"] = storage_bucket
+if project_id:
+    init_options["projectId"] = project_id
+
+firebase_admin.initialize_app(cred, init_options)
+
+print(f"Firebase initialized (project={project_id}, bucket={storage_bucket})")
 
 db = firestore.client()
 bucket = storage.bucket()
@@ -25,6 +52,19 @@ class FirebaseService:
     bucket = bucket  # Class attribute for external access
     
     @staticmethod
+    def _is_candidate_cv_doc(cv_dict: dict, doc_id: str = "") -> bool:
+        """Filter out meta/system docs and keep only candidate CV records."""
+        if not isinstance(cv_dict, dict):
+            return False
+        if doc_id.startswith("_"):
+            return False
+        if cv_dict.get("schemaVersion") is not None:
+            return False
+        # Candidate docs should have at least one identifying/job field.
+        candidate_markers = ("candidateId", "name", "email", "currentRole", "skills", "fileName")
+        return any(cv_dict.get(key) not in (None, "", []) for key in candidate_markers)
+
+    @staticmethod
     def get_metrics():
         doc_ref = db.collection('metrics').document('dashboard')
         doc = doc_ref.get()
@@ -32,12 +72,12 @@ class FirebaseService:
     
     @staticmethod
     def get_alerts():
-        alerts_ref = db.collection('alerts').where('active', '==', True)
+        alerts_ref = db.collection('alerts').where(filter=FieldFilter('active', '==', True))
         return [alert.to_dict() for alert in alerts_ref.stream()]
     
     @staticmethod
     def get_rescued_candidates():
-        candidates_ref = db.collection('rescued_candidates').where('status', '==', 'rescued')
+        candidates_ref = db.collection('rescued_candidates').where(filter=FieldFilter('status', '==', 'rescued'))
         return [candidate.to_dict() for candidate in candidates_ref.stream()]
     
     @staticmethod
@@ -53,7 +93,12 @@ class FirebaseService:
     @staticmethod
     def get_cvs():
         cvs_ref = db.collection('cvs')
-        return [cv.to_dict() for cv in cvs_ref.stream()]
+        result = []
+        for cv in cvs_ref.stream():
+            cv_dict = cv.to_dict()
+            if FirebaseService._is_candidate_cv_doc(cv_dict, cv.id):
+                result.append(cv_dict)
+        return result
     
     @staticmethod
     def get_all_cvs():
@@ -62,6 +107,8 @@ class FirebaseService:
         cvs = []
         for doc in cvs_ref.stream():
             cv_dict = doc.to_dict()
+            if not FirebaseService._is_candidate_cv_doc(cv_dict, doc.id):
+                continue
             cv_dict['id'] = doc.id
             cvs.append(cv_dict)
         return cvs
@@ -90,12 +137,12 @@ class FirebaseService:
     
     @staticmethod
     def get_recruiting_managers():
-        managers_ref = db.collection('recruiting_managers').where('active', '==', True)
+        managers_ref = db.collection('recruiting_managers').where(filter=FieldFilter('active', '==', True))
         return [manager.to_dict() for manager in managers_ref.stream()]
     
     @staticmethod
     def get_companies():
-        companies_ref = db.collection('companies').where('active', '==', True)
+        companies_ref = db.collection('companies').where(filter=FieldFilter('active', '==', True))
         return [company.to_dict() for company in companies_ref.stream()]
     
     @staticmethod

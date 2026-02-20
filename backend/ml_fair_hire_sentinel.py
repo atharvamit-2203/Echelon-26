@@ -14,7 +14,7 @@ try:
 except Exception as e:
     nlp = None
     print("=" * 80)
-    print("⚠️  WARNING: spaCy model 'en_core_web_sm' not loaded")
+    print("WARNING: spaCy model 'en_core_web_sm' not loaded")
     print("=" * 80)
     print(f"Error details: {type(e).__name__}: {str(e)}")
     print("\nTo fix this issue, run one of these commands:")
@@ -79,12 +79,22 @@ class FairHireSentinel:
             print(f"Warning: Could not load sentence-transformers model: {e}")
             self.semantic_model = None
         
+        # Cache expensive semantic embeddings to avoid repeated model calls.
+        self._embedding_cache = {}
+        self._role_embeddings = {}
+        
         # TF-IDF vectorizer for keyword matching
         self.tfidf_vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
         print("✓ Initialized TF-IDF vectorizer")
         
         # Predefined skill mappings for common technical roles
         self._initialize_skill_database()
+        if self.semantic_model:
+            try:
+                for role_key in self.role_skills_db:
+                    self._role_embeddings[role_key] = self._encode_text(role_key)
+            except Exception as e:
+                print(f"Warning: Could not precompute role embeddings: {e}")
         
     def _initialize_skill_database(self):
         """Initialize comprehensive skill database for different roles"""
@@ -102,6 +112,36 @@ class FairHireSentinel:
             'cloud architect': ['AWS', 'Azure', 'GCP', 'Cloud Architecture', 'Security', 'Networking', 'Infrastructure', 'Terraform', 'Docker', 'Kubernetes', 'Problem Solving', 'Communication', 'Cost Optimization', 'High Availability', 'Disaster Recovery'],
             'security engineer': ['Security', 'Penetration Testing', 'Security Auditing', 'OWASP', 'Firewall', 'Encryption', 'Network Security', 'Python', 'Linux', 'Problem Solving', 'Communication', 'Incident Response', 'Vulnerability Assessment', 'SIEM', 'Compliance'],
         }
+
+    def _encode_text(self, text: str):
+        """Return cached embedding for one text with progress bars disabled."""
+        normalized = str(text).lower().strip()
+        if not normalized or not self.semantic_model:
+            return None
+        cached = self._embedding_cache.get(normalized)
+        if cached is not None:
+            return cached
+        embedding = self.semantic_model.encode(
+            [normalized],
+            show_progress_bar=False
+        )[0]
+        self._embedding_cache[normalized] = embedding
+        return embedding
+
+    def _encode_texts(self, texts: List[str]) -> List:
+        """Batch-encode texts with caching and no tqdm output."""
+        if not self.semantic_model:
+            return []
+        normalized_texts = [str(t).lower().strip() for t in texts]
+        pending = [t for t in normalized_texts if t and t not in self._embedding_cache]
+        if pending:
+            embeddings = self.semantic_model.encode(
+                pending,
+                show_progress_bar=False
+            )
+            for text, embedding in zip(pending, embeddings):
+                self._embedding_cache[text] = embedding
+        return [self._embedding_cache[t] for t in normalized_texts if t]
     
     def extract_required_skills(self, job_title: str) -> List[str]:
         """Extract required skills for a job position using ML-based matching"""
@@ -116,12 +156,15 @@ class FairHireSentinel:
             
             # Fuzzy matching using semantic similarity
             if self.semantic_model:
-                job_embedding = self.semantic_model.encode([job_title_lower])[0]
+                job_embedding = self._encode_text(job_title_lower)
                 best_match = None
                 best_score = 0
                 
                 for role_key, skills in self.role_skills_db.items():
-                    role_embedding = self.semantic_model.encode([role_key])[0]
+                    role_embedding = self._role_embeddings.get(role_key)
+                    if role_embedding is None:
+                        role_embedding = self._encode_text(role_key)
+                        self._role_embeddings[role_key] = role_embedding
                     similarity = cosine_similarity([job_embedding], [role_embedding])[0][0]
                     
                     if similarity > best_score:
@@ -154,7 +197,9 @@ class FairHireSentinel:
             
             # Method 1: Use sentence transformers for semantic similarity (preferred)
             if self.semantic_model:
-                embeddings = self.semantic_model.encode([text1, text2])
+                embeddings = self._encode_texts([text1, text2])
+                if len(embeddings) < 2:
+                    return 0.0
                 similarity = cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
                 return float(max(0.0, min(1.0, similarity)))
             
@@ -220,13 +265,25 @@ class FairHireSentinel:
         
         # Calculate semantic matches for missing keywords
         semantic_matches = []
-        for missing_keyword in missing_keywords:
-            similarity = self.calculate_semantic_similarity(missing_keyword, cv_text)
-            if similarity > 0.6:  # High semantic similarity threshold
-                semantic_matches.append({
-                    'keyword': missing_keyword,
-                    'similarity': similarity
-                })
+        if missing_keywords and self.semantic_model:
+            cv_embedding = self._encode_text(cv_text)
+            keyword_embeddings = self._encode_texts(missing_keywords)
+            for missing_keyword, keyword_embedding in zip(missing_keywords, keyword_embeddings):
+                similarity = cosine_similarity([keyword_embedding], [cv_embedding])[0][0]
+                similarity = float(max(0.0, min(1.0, similarity)))
+                if similarity > 0.6:  # High semantic similarity threshold
+                    semantic_matches.append({
+                        'keyword': missing_keyword,
+                        'similarity': similarity
+                    })
+        else:
+            for missing_keyword in missing_keywords:
+                similarity = self.calculate_semantic_similarity(missing_keyword, cv_text)
+                if similarity > 0.6:  # High semantic similarity threshold
+                    semantic_matches.append({
+                        'keyword': missing_keyword,
+                        'similarity': similarity
+                    })
         
         # Determine if bias exists
         bias_detected = len(semantic_matches) > 0
@@ -449,6 +506,7 @@ class FairHireSentinel:
         for candidate in candidates:
             cv_text = self._get_cv_text(candidate)
             cv_text_lower = cv_text.lower()
+            profile_score = self._calculate_profile_depth_score(candidate, cv_text, job_keywords)
             
             # Multi-job family analysis
             if use_multi_job:
@@ -476,29 +534,42 @@ class FairHireSentinel:
                 # Check keyword match rate for specific job
                 matched_keywords = sum(1 for kw in job_keywords if kw.lower() in cv_text_lower)
                 match_rate = matched_keywords / len(job_keywords) if job_keywords else 0
-            
-            # Immediate interview if 70%+ keywords match
-            if match_rate >= 0.7:
+
+            # Holistic score includes keyword match + profile depth (experience/projects/impact evidence)
+            holistic_score = (0.7 * match_rate) + (0.3 * profile_score)
+
+            # Immediate interview if strong holistic evidence
+            if holistic_score >= 0.72:
                 candidate['status'] = 'immediate_interview'
                 candidate['match_rate'] = match_rate
                 candidate['matched_keywords'] = matched_keywords
-                candidate['ats_score'] = match_rate * 100
+                candidate['profile_score'] = round(profile_score, 4)
+                candidate['holistic_score'] = round(holistic_score, 4)
+                candidate['ats_score'] = holistic_score * 100
                 results['immediate_interviews'].append(candidate)
             else:
                 # Stage 2: Advanced semantic analysis for non-matches
                 bias_analysis = self.detect_keyword_bias(cv_text, job_keywords)
                 candidate['semantic_analysis'] = bias_analysis
                 candidate['match_rate'] = match_rate
-                
-                # Rescue if high semantic match despite low keyword match
-                if bias_analysis['bias_detected'] and bias_analysis['overall_match_score'] > 0.65:
+
+                semantic_score = bias_analysis.get('overall_match_score', 0)
+                final_score = (0.5 * match_rate) + (0.25 * semantic_score) + (0.25 * profile_score)
+                candidate['profile_score'] = round(profile_score, 4)
+                candidate['holistic_score'] = round(final_score, 4)
+
+                # Rescue if holistic evidence is strong despite keyword mismatch
+                if final_score >= 0.60:
                     candidate['status'] = 'rescued'
                     results['rescue_alerts'].append({
                         'candidate_id': candidate.get('candidateId'),
                         'name': candidate.get('name', 'Unknown'),
-                        'semantic_score': bias_analysis['overall_match_score'],
-                        'ats_score': match_rate * 100,
-                        'rescue_reason': f"High semantic match ({bias_analysis['overall_match_score']:.1%}) despite only {match_rate:.0%} keyword match",
+                        'semantic_score': semantic_score,
+                        'ats_score': final_score * 100,
+                        'rescue_reason': (
+                            f"Strong holistic fit ({final_score:.1%}) from semantic ({semantic_score:.1%}), "
+                            f"experience/projects profile ({profile_score:.1%}), and keyword match ({match_rate:.0%})"
+                        ),
                         'matched_keywords': matched_keywords,
                         'total_keywords': len(job_keywords),
                         'semantic_matches': bias_analysis.get('semantic_matches', []),
@@ -507,12 +578,17 @@ class FairHireSentinel:
                         'education': candidate.get('education', ''),
                         'actual_potential': bias_analysis['overall_match_score'] * 100,
                         'coding_score': min(85, int(bias_analysis['overall_match_score'] * 100)),
-                        'drift_score': int((0.7 - match_rate) * 100)
+                        'drift_score': int((0.7 - match_rate) * 100),
+                        'profile_score': profile_score,
+                        'holistic_score': final_score
                     })
                 else:
                     candidate['status'] = 'rejected'
-                    candidate['rejection_reason'] = f"Low match: {match_rate:.0%} keywords, {bias_analysis['overall_match_score']:.0%} semantic"
-                    candidate['ats_score'] = match_rate * 100
+                    candidate['rejection_reason'] = (
+                        f"Low holistic fit: {final_score:.0%} overall "
+                        f"({match_rate:.0%} keywords, {semantic_score:.0%} semantic, {profile_score:.0%} profile depth)"
+                    )
+                    candidate['ats_score'] = final_score * 100
                     results['rejected'].append(candidate)
         
         # Run demographic bias analysis
@@ -531,12 +607,82 @@ class FairHireSentinel:
     
     def _get_cv_text(self, candidate: Dict) -> str:
         """Extract text content from candidate data"""
-        cv_text = candidate.get('content', '') or candidate.get('text_content', '') or candidate.get('skills', [])
-        if isinstance(cv_text, list):
-            cv_text = ' '.join(str(s) for s in cv_text)
-        # Also include name, education, role for better matching
-        additional_info = f"{candidate.get('name', '')} {candidate.get('education', '')} {candidate.get('currentRole', '')}"
-        return f"{cv_text} {additional_info}"
+        corpus_parts = [
+            candidate.get('content', ''),
+            candidate.get('text_content', ''),
+            candidate.get('extractedText', ''),
+            candidate.get('resumeText', ''),
+            candidate.get('experience_summary', ''),
+            candidate.get('achievements', ''),
+            candidate.get('project_summary', ''),
+            candidate.get('projects', ''),
+            candidate.get('name', ''),
+            candidate.get('education', ''),
+            candidate.get('currentRole', ''),
+            candidate.get('jobTitle', ''),
+        ]
+        skills = candidate.get('skills', [])
+        if isinstance(skills, list):
+            corpus_parts.append(' '.join(str(s) for s in skills))
+        elif isinstance(skills, str):
+            corpus_parts.append(skills)
+
+        projects = candidate.get('projects', [])
+        if isinstance(projects, list):
+            corpus_parts.append(' '.join(str(p) for p in projects))
+
+        return ' '.join(str(p) for p in corpus_parts if p).strip()
+
+    def _calculate_profile_depth_score(self, candidate: Dict, cv_text: str, required_keywords: List[str]) -> float:
+        """Score evidence beyond skills: experience, projects, impact, and profile breadth."""
+        text = (cv_text or '').lower()
+
+        # Experience evidence
+        try:
+            explicit_exp = float(candidate.get('experience', 0) or 0)
+        except Exception:
+            explicit_exp = 0
+        exp_mentions = re.findall(r'(\d+)\s*\+?\s*(?:years|yrs|year)', text)
+        mention_exp = max([float(x) for x in exp_mentions], default=0.0)
+        exp_years = max(explicit_exp, mention_exp)
+        exp_score = min(exp_years / 12.0, 1.0)
+
+        # Project / delivery evidence
+        project_terms = [
+            'project', 'projects', 'built', 'developed', 'implemented', 'designed',
+            'deployed', 'architecture', 'migration', 'production', 'delivered', 'solution'
+        ]
+        project_hits = sum(1 for term in project_terms if term in text)
+        project_score = min(project_hits / 6.0, 1.0)
+
+        # Quantified impact evidence (%, x, metrics, numbers)
+        impact_hits = len(re.findall(r'\b\d+(\.\d+)?\s*(%|x|k|m)?\b', text))
+        impact_score = min(impact_hits / 8.0, 1.0)
+
+        # Profile breadth from declared skills and role/education details
+        skills = candidate.get('skills', [])
+        if isinstance(skills, str):
+            skills = [s.strip() for s in skills.split(',') if s.strip()]
+        if not isinstance(skills, list):
+            skills = []
+        skills_score = min(len(set(skills)) / 12.0, 1.0)
+        context_score = 1.0 if candidate.get('currentRole') and candidate.get('education') else 0.6 if candidate.get('currentRole') or candidate.get('education') else 0.0
+
+        # Light keyword evidence so score remains grounded to the target role.
+        keyword_score = 0.0
+        if required_keywords:
+            kw_hits = sum(1 for kw in required_keywords if kw.lower() in text)
+            keyword_score = kw_hits / len(required_keywords)
+
+        profile_score = (
+            0.35 * exp_score +
+            0.25 * project_score +
+            0.15 * impact_score +
+            0.15 * skills_score +
+            0.05 * context_score +
+            0.05 * keyword_score
+        )
+        return float(max(0.0, min(1.0, profile_score)))
     
     def generate_rescue_alerts(self, candidates: List[Dict], job_keywords: List[str]) -> List[Dict]:
         """Generate rescue alerts for qualified candidates who were wrongly rejected"""
@@ -567,8 +713,8 @@ class FairHireSentinel:
         
         return rescue_alerts
     
-    def run_full_analysis(self, candidates: List[Dict], job_keywords: List[str]) -> Dict:
-        """Run complete Fair-Hire Sentinel analysis"""
+    def run_legacy_summary_analysis(self, candidates: List[Dict], job_keywords: List[str]) -> Dict:
+        """Legacy summary-only analysis. Kept for backward compatibility."""
         analysis_results = {
             'timestamp': datetime.now().isoformat(),
             'total_candidates': len(candidates),

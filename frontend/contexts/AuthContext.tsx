@@ -10,6 +10,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isAuthInitialized: boolean;
   login: (email: string, companyName?: string) => void;
   logout: () => void;
   showToast: (message: string, type: 'success' | 'error' | 'info') => void;
@@ -19,14 +20,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthInitialized, setIsAuthInitialized] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
-    // Check if user is logged in on mount
-    const savedUser = localStorage.getItem('fairhire_user');
+    // Check if user is logged in on mount.
+    // Also support legacy "user" key used in other routes.
+    const savedUser = localStorage.getItem('fairhire_user') || localStorage.getItem('user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser({
+          email: parsedUser.email,
+          companyName: parsedUser.companyName
+        });
+      } catch {
+        setUser(null);
+      }
     }
+    setIsAuthInitialized(true);
   }, []);
 
   const login = (email: string, companyName?: string) => {
@@ -38,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('fairhire_user');
+    localStorage.removeItem('user');
   };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
@@ -46,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, showToast }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isAuthInitialized, login, logout, showToast }}>
       {children}
       
       {/* Toast Notification */}

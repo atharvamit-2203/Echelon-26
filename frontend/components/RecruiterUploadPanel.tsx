@@ -10,6 +10,8 @@ export default function RecruiterUploadPanel() {
   const [jobTitle, setJobTitle] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [referenceCV, setReferenceCV] = useState(null);
+  const [referenceJobTitle, setReferenceJobTitle] = useState('');
+  const [referenceUploading, setReferenceUploading] = useState(false);
   const [extractingSkills, setExtractingSkills] = useState(false);
 
   const handleFileUpload = async (event) => {
@@ -39,10 +41,16 @@ export default function RecruiterUploadPanel() {
     const file = event.target.files[0];
     if (!file) return;
     
+    if (!referenceJobTitle.trim()) {
+      alert('Please enter a reference job title before uploading the reference CV.');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('is_reference', 'true');
+    formData.append('jobTitle', referenceJobTitle.trim());
     
+    setReferenceUploading(true);
     try {
       const response = await fetch('http://localhost:8000/api/upload-reference-cv', {
         method: 'POST',
@@ -50,12 +58,21 @@ export default function RecruiterUploadPanel() {
       });
       
       if (response.ok) {
-        setReferenceCV({ name: file.name, size: (file.size / 1024).toFixed(2) + ' KB' });
-        alert('✅ Reference CV uploaded! This will be used as benchmark for comparison.');
+        setReferenceCV({
+          name: file.name,
+          size: (file.size / 1024).toFixed(2) + ' KB',
+          jobTitle: referenceJobTitle.trim()
+        });
+        alert('Reference CV uploaded successfully. It will be used in analysis for candidate comparison.');
+      } else {
+        const data = await response.json().catch(() => ({}));
+        alert(`Failed to upload reference CV: ${data.error || response.status}`);
       }
     } catch (error) {
       console.error('Reference CV upload error:', error);
-      alert('❌ Failed to upload reference CV');
+      alert('Failed to upload reference CV');
+    } finally {
+      setReferenceUploading(false);
     }
   };
 
@@ -157,18 +174,29 @@ export default function RecruiterUploadPanel() {
       {activeTab === 'upload' && (
         <div className="space-y-6">
           {/* Reference CV Upload */}
-          <div className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 border-2 border-purple-500/30 rounded-xl p-6">
+          <div className="bg-gradient-to-br from-purple-900/25 to-fuchsia-900/20 border border-purple-500/40 rounded-xl p-6 shadow-lg shadow-purple-900/20">
             <div className="flex items-start gap-4 mb-4">
               <div className="p-3 bg-purple-600/20 rounded-lg">
                 <FileCheck className="w-6 h-6 text-purple-400" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white mb-1">Company Reference CV</h3>
+                <h3 className="text-lg font-semibold text-white mb-1">Reference CV for Benchmarking</h3>
                 <p className="text-sm text-gray-400">
-                  Upload an ideal CV from your company to use as a benchmark for comparing other candidates
+                  Upload one ideal profile with target role. Analysis uses it to derive role context for candidate comparison.
                 </p>
               </div>
             </div>
+
+            <label className="block text-xs font-semibold uppercase tracking-wide text-purple-300 mb-2">
+              Reference Job Title
+            </label>
+            <input
+              type="text"
+              value={referenceJobTitle}
+              onChange={(e) => setReferenceJobTitle(e.target.value)}
+              placeholder="e.g., Senior Sales Manager"
+              className="w-full mb-4 bg-gray-900/70 border border-purple-500/30 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-purple-400"
+            />
             
             {referenceCV ? (
               <div className="flex items-center justify-between bg-purple-900/30 border border-purple-500/30 rounded-lg p-4">
@@ -178,7 +206,7 @@ export default function RecruiterUploadPanel() {
                   </div>
                   <div>
                     <p className="text-white font-medium">{referenceCV.name}</p>
-                    <p className="text-xs text-gray-400">{referenceCV.size}</p>
+                    <p className="text-xs text-gray-400">{referenceCV.size} • {referenceCV.jobTitle}</p>
                   </div>
                 </div>
                 <button
@@ -199,10 +227,26 @@ export default function RecruiterUploadPanel() {
                 />
                 <label
                   htmlFor="reference-cv-upload"
-                  className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg cursor-pointer transition-colors font-medium"
+                  className={`flex items-center justify-center gap-2 w-full px-4 py-3 text-white rounded-lg transition-colors font-medium ${
+                    referenceUploading
+                      ? 'bg-gray-700 cursor-not-allowed'
+                      : 'bg-purple-600 hover:bg-purple-700 cursor-pointer'
+                  }`}
                 >
-                  <Upload className="w-5 h-5" />
-                  Upload Reference CV
+                  {referenceUploading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5" />
+                      Upload Reference CV
+                    </>
+                  )}
                 </label>
               </div>
             )}
@@ -379,12 +423,12 @@ export default function RecruiterUploadPanel() {
                 <span className="text-cyan-400 mt-0.5">•</span>
                 <span>Qualified candidates with semantic matches get rescued</span>
               </li>
-              {referenceCV && (
-                <li className="flex items-start gap-2">
-                  <span className="text-purple-400 mt-0.5">✓</span>
-                  <span className="text-purple-300">Reference CV will be used for comparison benchmarking</span>
-                </li>
-              )}
+              <li className="flex items-start gap-2">
+                <span className="text-purple-400 mt-0.5">•</span>
+                <span className="text-purple-300">
+                  Reference CV context: {referenceCV ? `${referenceCV.name} (${referenceCV.jobTitle})` : 'Not uploaded yet'}
+                </span>
+              </li>
             </ul>
           </div>
 

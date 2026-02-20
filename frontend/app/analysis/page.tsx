@@ -67,6 +67,7 @@ type TabType = "scatter" | "drift" | "clustering" | "breakdown";
 export default function AnalysisPage() {
   const router = useRouter();
   const params = useSearchParams();
+  const autorun = params.get("autorun") === "1";
   const [status, setStatus] = useState<"idle"|"running"|"completed"|"error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -74,12 +75,26 @@ export default function AnalysisPage() {
   const [activeTab, setActiveTab] = useState<TabType>("scatter");
 
   useEffect(() => {
-    // Always auto-run analysis when page loads if no results yet
-    if (status === "idle" && !result) {
+    // Load cached analysis result for instant page load.
+    const cachedResult = localStorage.getItem("analysis_result_cache");
+    if (cachedResult) {
+      try {
+        const parsed = JSON.parse(cachedResult) as AnalysisResult;
+        setResult(parsed);
+        setStatus("completed");
+      } catch {
+        localStorage.removeItem("analysis_result_cache");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // Run analysis only when explicitly requested (from Dashboard).
+    if (autorun && status === "idle" && !result) {
       runAnalysis();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [autorun]);
 
   const runAnalysis = async () => {
     setStatus("running");
@@ -93,6 +108,7 @@ export default function AnalysisPage() {
       if (!res.ok) throw new Error(`Request failed: ${res.status}`);
       const data: AnalysisResult = await res.json();
       setResult(data);
+      localStorage.setItem("analysis_result_cache", JSON.stringify(data));
       setStatus("completed");
       if (data.biasDetected) {
         setShowNotif(true);

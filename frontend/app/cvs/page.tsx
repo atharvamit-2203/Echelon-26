@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import CVUploadForm from '../../components/CVUploadForm';
 import CVFileUpload from '../../components/CVFileUpload';
+import ReferenceCVManager from '../../components/ReferenceCVManager';
 
 interface CV {
   candidateId: string;
@@ -135,6 +136,9 @@ export default function CVManagement() {
       
       {/* Add CV Form */}
       <CVUploadForm onSuccess={fetchData} />
+      
+      {/* Reference CV Manager */}
+      <ReferenceCVManager />
       
       {/* CVs Section */}
       <div className="bg-white rounded-lg shadow p-6">

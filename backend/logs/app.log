@@ -26,3 +26,80 @@
 {"timestamp": null, "level": null, "name": "root", "message": "Client 7a345870-ae23-4cc6-9c4c-89a4f2416bdc connected"}
 {"timestamp": null, "level": null, "name": "root", "message": "Client 7a345870-ae23-4cc6-9c4c-89a4f2416bdc disconnected"}
 {"timestamp": null, "level": null, "name": "root", "message": "Shutting down application"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 24851e90-8c9c-41ef-ba9b-caefe57081e5 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 24851e90-8c9c-41ef-ba9b-caefe57081e5 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client d44def62-4052-435f-9f88-ef36b5560184 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client d44def62-4052-435f-9f88-ef36b5560184 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client bd0f0310-9e35-4f6d-b602-d7d1bf0c4b89 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client bd0f0310-9e35-4f6d-b602-d7d1bf0c4b89 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client f2c12043-4560-4cb1-b992-acdd49c5fe96 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client f2c12043-4560-4cb1-b992-acdd49c5fe96 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 8f92806f-cb7c-4244-bafa-add7001e9bda connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 8f92806f-cb7c-4244-bafa-add7001e9bda disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client daee52d5-7255-4b63-a3a1-51b4f3d512fd connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client daee52d5-7255-4b63-a3a1-51b4f3d512fd disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client bfffa1c5-a30c-419b-887a-197ed874f5f8 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client bfffa1c5-a30c-419b-887a-197ed874f5f8 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client b06f4152-8915-4b7f-aa0b-38e0e4602a07 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client b06f4152-8915-4b7f-aa0b-38e0e4602a07 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 812a9d61-4b8f-4315-b9c3-1dd202a35fcb connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 812a9d61-4b8f-4315-b9c3-1dd202a35fcb disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 5a9468d1-9cac-40a6-9533-1d7871e09d91 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 5a9468d1-9cac-40a6-9533-1d7871e09d91 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 9c70bc32-19b1-454e-aee9-cf36a5e14dfc connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 9c70bc32-19b1-454e-aee9-cf36a5e14dfc disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 71cbcac7-b638-436b-a9f6-c141fd15b8bb connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 71cbcac7-b638-436b-a9f6-c141fd15b8bb disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client ce2cbc54-83bc-40e5-96b2-a0215263ac3b connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client ce2cbc54-83bc-40e5-96b2-a0215263ac3b disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client cb520e6e-66bb-4c8a-b55c-7f592c82f1ec connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client cb520e6e-66bb-4c8a-b55c-7f592c82f1ec disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client cbb122e7-2fe3-4b67-a324-06d6651b8d40 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client cbb122e7-2fe3-4b67-a324-06d6651b8d40 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 1b4f01de-151d-4f03-8b61-f2edfa918c36 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 1b4f01de-151d-4f03-8b61-f2edfa918c36 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 5b7e81b6-c447-42c5-bbef-14ec2ae00890 connected"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 5b7e81b6-c447-42c5-bbef-14ec2ae00890 disconnected"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Load pretrained SentenceTransformer: all-MiniLM-L6-v2"}
+{"timestamp": null, "level": null, "name": "sentence_transformers.SentenceTransformer", "message": "Use pytorch device_name: cpu"}
+{"timestamp": null, "level": null, "name": "root", "message": "Client 36802887-cf33-426c-bdfe-e4388be10c30 connected"}

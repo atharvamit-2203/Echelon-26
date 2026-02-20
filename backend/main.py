@@ -11,6 +11,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from uuid import uuid4
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +20,14 @@ load_dotenv()
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
 app = FastAPI(title="Fair-Hire Sentinel API")
+
+# Include v1 API router
+try:
+    from app.api.v1.api import api_router
+    app.include_router(api_router, prefix="/api/v1")
+    print("✓ Mounted /api/v1 routes")
+except Exception as e:
+    print(f"Warning: Could not mount v1 API: {e}")
 
 # Initialize ML-powered Fair-Hire Sentinel with local ML models
 try:
@@ -142,10 +151,8 @@ def get_home_data():
     
     # Generate dynamic alerts based on actual ML analysis
     try:
-        # Get all CVs
+        # Get all CVs from Firestore only; avoid expensive file re-processing on each poll.
         all_cvs = FirebaseService.get_all_cvs()
-        cv_files = FirebaseService.get_cvs_from_files()
-        all_cvs = all_cvs + cv_files
         
         # Calculate real metrics
         total_candidates = len(all_cvs)
@@ -206,7 +213,7 @@ def get_home_data():
         
         return HomePageData(
             metrics=[
-                MetricData(title="Total Candidates", value=str(total_candidates), delta=f"+{len(cv_files)}"),
+                MetricData(title="Total Candidates", value=str(total_candidates), delta="+0"),
                 MetricData(title="ATS Rejections", value=str(rejected_count), delta=f"{rejection_rate}%", trend="down" if rejection_rate < 40 else "up"),
                 MetricData(title="Rescued Candidates", value=str(semantic_issues), delta=f"+{semantic_issues}"),
                 MetricData(title="Active Bias Alerts", value=str(len(alerts)), delta="⚠️" if len(alerts) > 0 else "✓")
@@ -412,15 +419,39 @@ async def upload_reference_cv(
         # Generate reference CV ID
         ref_id = f"REF{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
+        # Read and extract text from file
+        contents = await file.read()
+        extracted_text = ""
+        
+        try:
+            if file.filename.lower().endswith('.pdf'):
+                import PyPDF2
+                from io import BytesIO
+                pdf_reader = PyPDF2.PdfReader(BytesIO(contents))
+                for page in pdf_reader.pages:
+                    extracted_text += page.extract_text() + "\n"
+            elif file.filename.lower().endswith('.docx'):
+                import docx
+                from io import BytesIO
+                doc = docx.Document(BytesIO(contents))
+                for paragraph in doc.paragraphs:
+                    extracted_text += paragraph.text + "\n"
+            elif file.filename.lower().endswith('.txt'):
+                extracted_text = contents.decode('utf-8')
+        except Exception as e:
+            print(f"Error extracting text: {e}")
+            extracted_text = "Could not extract text"
+        
         # Save file to Firebase Storage
+        file_url = None
         try:
             blob = FirebaseService.bucket.blob(f"reference_cvs/{file.filename}")
-            contents = await file.read()
             blob.upload_from_string(contents, content_type=file.content_type)
             file_url = blob.public_url
         except Exception as e:
             print(f"Warning: Could not save reference CV to Firebase Storage: {e}")
-            file_url = None
+        
+        # Allow multiple active reference CVs - no auto-deactivation
         
         # Save reference CV data
         ref_data = {
@@ -428,6 +459,7 @@ async def upload_reference_cv(
             "jobTitle": jobTitle,
             "fileName": file.filename,
             "fileUrl": file_url,
+            "extractedText": extracted_text,
             "uploadedAt": datetime.now(),
             "status": "active"
         }
@@ -436,7 +468,7 @@ async def upload_reference_cv(
         FirebaseService.db.collection('reference_cvs').document(ref_id).set(ref_data)
         
         return {
-            "message": "Reference CV uploaded successfully",
+            "message": "Reference CV uploaded successfully. All future analyses will use this as reference.",
             "referenceId": ref_id,
             "jobTitle": jobTitle,
             "filename": file.filename
@@ -493,11 +525,10 @@ async def add_cv(
 @app.get("/api/cvs")
 def get_cvs():
     try:
-        # Get CVs ONLY from file system (sample_cvs folder)
-        # Ignore Firestore CVs to avoid duplicates and show only ML-processed CVs
-        file_cvs = FirebaseService.get_cvs_from_files()
+        # Get CVs ONLY from Firestore (user submissions)
+        firestore_cvs = FirebaseService.get_all_cvs()
         
-        return {"cvs": file_cvs, "total": len(file_cvs)}
+        return {"cvs": firestore_cvs, "total": len(firestore_cvs)}
     except Exception as e:
         return {"error": str(e)}
 
@@ -528,7 +559,7 @@ def get_companies():
 @app.get("/api/job-postings")
 def get_job_postings():
     try:
-        jobs_ref = FirebaseService.db.collection('job_postings').where('status', '==', 'active')
+        jobs_ref = FirebaseService.db.collection('job_postings').where(filter=FieldFilter('status', '==', 'active'))
         jobs = [job.to_dict() for job in jobs_ref.stream()]
         return {"jobs": jobs}
     except Exception as e:
@@ -559,64 +590,93 @@ async def start_batch_analysis(background_tasks: BackgroundTasks):
 async def run_ml_analysis():
     """Run ML-powered bias detection and semantic analysis with two-stage screening"""
     try:
-        # Get all CVs
-        firebase_cvs = FirebaseService.get_cvs()
-        file_cvs = FirebaseService.get_cvs_from_files()
-        
-        # First, save file CVs to Firebase if they don't exist
-        print(f"Found {len(firebase_cvs)} CVs in Firebase, {len(file_cvs)} CVs from files")
-        
-        # Create a mapping of existing CV names to doc IDs
-        existing_cvs_map = {cv.get('name'): cv.get('candidateId') for cv in firebase_cvs if cv.get('name')}
-        
-        for file_cv in file_cvs:
-            cv_name = file_cv.get('name')
-            # Only add if not already in Firebase
-            if cv_name not in existing_cvs_map:
-                try:
-                    # Generate a unique candidate ID
-                    candidate_id = f"CV{datetime.now().strftime('%Y%m%d%H%M%S')}{len(firebase_cvs)}"
-                    file_cv['candidateId'] = candidate_id
-                    file_cv['status'] = 'pending_analysis'
-                    file_cv['uploadedAt'] = datetime.now()
-                    
-                    # Save to Firebase
-                    doc_ref = FirebaseService.db.collection('cvs').document(candidate_id)
-                    doc_ref.set(file_cv)
-                    existing_cvs_map[cv_name] = candidate_id
-                    firebase_cvs.append(file_cv)
-                    print(f"✓ Added {cv_name} to Firebase with ID: {candidate_id}")
-                except Exception as e:
-                    print(f"Error saving file CV {cv_name}: {e}")
-        
-        all_cvs = firebase_cvs
+        # Get all CVs from Firestore only
+        all_cvs = FirebaseService.get_all_cvs()
         
         if not all_cvs:
             print("No CVs found for analysis")
             return
         
-        # Get job criteria (use latest or use multi-job family analysis)
+        # Get job criteria (prefer reference CV context, then active saved criteria, then AI fallback).
         job_keywords = []
+        use_multi_job = False
+        
         try:
-            criteria_ref = FirebaseService.db.collection('job_criteria').where('status', '==', 'active').order_by('created_at', direction='DESCENDING').limit(1)
-            criteria_docs = list(criteria_ref.stream())
-            if criteria_docs:
-                criteria_data = criteria_docs[0].to_dict()
-                job_keywords = criteria_data.get('keywords', [])
-                print(f"Using specific job criteria with {len(job_keywords)} keywords")
-            else:
-                print("No specific job criteria found - using multi-job family analysis")
+            # Check for ALL active reference CVs (supports multiple)
+            ref_cv_ref = FirebaseService.db.collection('reference_cvs').where(
+                filter=FieldFilter('status', '==', 'active')
+            ).order_by('uploadedAt', direction='DESCENDING')
+            ref_cv_docs = list(ref_cv_ref.stream())
+            
+            if ref_cv_docs and ml_sentinel:
+                keyword_pool = []
+                matched_families = []
+                all_job_titles = []
+
+                for ref_doc in ref_cv_docs:
+                    ref_cv_data = ref_doc.to_dict()
+                    ref_text = (ref_cv_data.get('extractedText') or '').strip()
+                    ref_title = (ref_cv_data.get('jobTitle') or '').strip()
+
+                    if ref_title:
+                        all_job_titles.append(ref_title)
+                        keyword_pool.extend(ml_sentinel.extract_required_skills(ref_title))
+
+                    if ref_text:
+                        # Use actual reference CV content to infer the closest job family keywords.
+                        family_result = ml_sentinel.analyze_cv_against_job_families(ref_text)
+                        best_match = family_result.get('best_match')
+                        if best_match:
+                            family_name = best_match[0]
+                            matched_families.append(family_name)
+                            keyword_pool.extend(ml_sentinel.JOB_FAMILIES[family_name]['keywords'])
+
+                # Remove duplicates while preserving order.
+                job_keywords = list(dict.fromkeys(keyword_pool))
+
+                if job_keywords:
+                    print(f"Using {len(ref_cv_docs)} active reference CV(s) for analysis context")
+                    if all_job_titles:
+                        print(f"Reference titles: {all_job_titles}")
+                    if matched_families:
+                        print(f"Reference-matched job families: {list(dict.fromkeys(matched_families))}")
+                    print(f"Total derived keywords: {len(job_keywords)}")
+            
+            # If no reference CV context, use active recruiter-defined criteria.
+            if not job_keywords:
+                criteria_docs = list(
+                    FirebaseService.db.collection('job_criteria')
+                    .where(filter=FieldFilter('status', '==', 'active'))
+                    .order_by('created_at', direction='DESCENDING')
+                    .limit(1)
+                    .stream()
+                )
+                if criteria_docs:
+                    latest_criteria = criteria_docs[0].to_dict()
+                    saved_keywords = latest_criteria.get('keywords') or []
+                    if saved_keywords:
+                        job_keywords = list(dict.fromkeys(saved_keywords))
+                        print(
+                            f"Using active job criteria: {latest_criteria.get('job_title', 'Unknown')} "
+                            f"({len(job_keywords)} keywords)"
+                        )
+
+            # If still no criteria, use AI to analyze each CV individually.
+            if not job_keywords:
+                print("No usable reference CV context found - using AI to match CVs to best job families")
+                use_multi_job = True
         except Exception as e:
-            print(f"Error fetching criteria: {e} - using multi-job family analysis")
+            print(f"Error fetching reference CVs: {e} - using AI job family matching")
+            use_multi_job = True
         
         print(f"Running analysis on {len(all_cvs)} CVs")
-        if job_keywords:
+        if not use_multi_job and job_keywords:
             print(f"Job keywords: {job_keywords}")
         else:
-            print("Analyzing against 10 job families: Software Engineering, Data Science, DevOps, Product Management, Sales, Marketing, UX/UI Design, QA Testing, HR, Finance")
+            print("AI Mode: Using semantic analysis to match CVs to best positions across all industries")
         
         # Run ML analysis with two-stage screening
-        analysis_results = ml_sentinel.run_full_analysis(all_cvs, job_keywords)
+        analysis_results = ml_sentinel.run_full_analysis(all_cvs, job_keywords if not use_multi_job else [])
         
         # Update ALL CV statuses in Firebase with analysis results
         print(f"Updating CV statuses in Firebase...")
@@ -624,10 +684,22 @@ async def run_ml_analysis():
         # Update immediate interview candidates
         for cv in analysis_results.get('immediate_interviews', []):
             try:
-                doc_id = cv.get('candidateId') or cv.get('id')
+                doc_id = cv.get('candidateId')
+                if not doc_id:
+                    # Try to find by name and userId
+                    name = cv.get('name')
+                    user_id = cv.get('userId')
+                    if name:
+                        docs = FirebaseService.db.collection('cvs').where(
+                            filter=FieldFilter('name', '==', name)
+                        ).limit(1).stream()
+                        for doc in docs:
+                            doc_id = doc.id
+                            break
+                
                 if doc_id:
                     update_data = {
-                        'status': 'immediate_interview',
+                        'status': 'selected',
                         'matchRate': cv.get('match_rate', 0),
                         'atsScore': cv.get('ats_score', 0),
                         'match_rate': cv.get('match_rate', 0),
@@ -635,26 +707,38 @@ async def run_ml_analysis():
                         'bestJobFamily': cv.get('best_job_family'),
                         'jobFamilyMatchScore': cv.get('job_family_match_score'),
                         'jobCategory': cv.get('job_category'),
+                        'suggestedPosition': cv.get('best_job_family'),  # AI suggested position
                         'top3JobMatches': cv.get('top_3_job_matches', []),
                         'analysisDate': datetime.now(),
                         'analyzed': True
                     }
-                    # Use set with merge to create/update
                     FirebaseService.db.collection('cvs').document(doc_id).set(update_data, merge=True)
-                    print(f"✓ Updated {cv.get('name')} - Immediate Interview ({cv.get('match_rate', 0):.0%} match)")
+                    position_info = f" (Suggested: {cv.get('best_job_family')})" if use_multi_job else ""
+                    print(f"✓ Updated {cv.get('name')} - Selected ({cv.get('match_rate', 0):.0%} match){position_info}")
             except Exception as e:
-                print(f"Error updating immediate interview CV {doc_id}: {e}")
+                print(f"Error updating CV: {e}")
         
         # Update rescued candidates
         for alert in analysis_results.get('rescue_alerts', []):
             try:
                 doc_id = alert.get('candidate_id')
+                if not doc_id:
+                    name = alert.get('name')
+                    if name:
+                        docs = FirebaseService.db.collection('cvs').where(
+                            filter=FieldFilter('name', '==', name)
+                        ).limit(1).stream()
+                        for doc in docs:
+                            doc_id = doc.id
+                            break
+                
                 if doc_id:
                     update_data = {
                         'status': 'rescued',
                         'semanticScore': alert.get('semantic_score', 0),
                         'atsScore': alert.get('ats_score', 0),
                         'rescue_reason': alert.get('rescue_reason'),
+                        'suggestedPosition': alert.get('best_job_family'),  # AI suggested position
                         'actualPotential': alert.get('actual_potential', 0),
                         'codingScore': alert.get('coding_score', 0),
                         'driftScore': alert.get('drift_score', 0),
@@ -663,16 +747,26 @@ async def run_ml_analysis():
                         'analysisDate': datetime.now(),
                         'analyzed': True
                     }
-                    # Use set with merge to create/update
                     FirebaseService.db.collection('cvs').document(doc_id).set(update_data, merge=True)
-                    print(f"✓ Rescued {alert.get('name')} - {alert.get('semantic_score', 0):.0%} semantic match")
+                    position_info = f" (Suggested: {alert.get('best_job_family')})" if use_multi_job else ""
+                    print(f"✓ Rescued {alert.get('name')} - {alert.get('semantic_score', 0):.0%} semantic match{position_info}")
             except Exception as e:
-                print(f"Error updating rescued CV {doc_id}: {e}")
+                print(f"Error updating rescued CV: {e}")
         
         # Update rejected candidates
         for cv in analysis_results.get('rejected', []):
             try:
-                doc_id = cv.get('candidateId') or cv.get('id')
+                doc_id = cv.get('candidateId')
+                if not doc_id:
+                    name = cv.get('name')
+                    if name:
+                        docs = FirebaseService.db.collection('cvs').where(
+                            filter=FieldFilter('name', '==', name)
+                        ).limit(1).stream()
+                        for doc in docs:
+                            doc_id = doc.id
+                            break
+                
                 if doc_id:
                     update_data = {
                         'status': 'rejected',
@@ -683,11 +777,10 @@ async def run_ml_analysis():
                         'analysisDate': datetime.now(),
                         'analyzed': True
                     }
-                    # Use set with merge to create/update
                     FirebaseService.db.collection('cvs').document(doc_id).set(update_data, merge=True)
                     print(f"✗ Rejected {cv.get('name')} - {cv.get('match_rate', 0):.0%} match")
             except Exception as e:
-                print(f"Error updating rejected CV {doc_id}: {e}")
+                print(f"Error updating rejected CV: {e}")
         
         # Save rescue alerts
         if analysis_results.get('rescue_alerts'):
@@ -761,7 +854,11 @@ def get_analysis_status():
 @app.get("/api/rescue-alerts")
 def get_rescue_alerts():
     try:
-        alerts_ref = FirebaseService.db.collection('alerts').where('type', '==', 'rescue_alert').where('active', '==', True)
+        alerts_ref = FirebaseService.db.collection('alerts').where(
+            filter=FieldFilter('type', '==', 'rescue_alert')
+        ).where(
+            filter=FieldFilter('active', '==', True)
+        )
         alerts = [alert.to_dict() for alert in alerts_ref.stream()]
         return {"rescue_alerts": alerts}
     except Exception as e:
@@ -772,7 +869,9 @@ def get_active_job_criteria():
     """Get active job criteria"""
     try:
         # Try to get from Firebase first
-        criteria_ref = FirebaseService.db.collection('job_criteria').where('status', '==', 'active').order_by('created_at', direction='DESCENDING').limit(1)
+        criteria_ref = FirebaseService.db.collection('job_criteria').where(
+            filter=FieldFilter('status', '==', 'active')
+        ).order_by('created_at', direction='DESCENDING').limit(1)
         criteria_docs = list(criteria_ref.stream())
         if criteria_docs:
             criteria_data = criteria_docs[0].to_dict()
@@ -890,12 +989,8 @@ def analyze_ml_bias(data: dict):
                 "error": "ML Sentinel not initialized. Please run setup_ml_models.py first"
             }
         
-        # Get CVs from Firebase AND from sample_cvs folder
-        cvs = FirebaseService.get_all_cvs()
-        cv_files = FirebaseService.get_cvs_from_files()
-        
-        # Merge both sources
-        all_cvs = cvs + cv_files
+        # Get all CVs from Firestore only (user submissions)
+        all_cvs = FirebaseService.get_all_cvs()
         
         if not all_cvs:
             return {
@@ -984,7 +1079,9 @@ def generate_bias_alerts(fairness_issues, biased_skills, total_cvs):
         # Check if alerts already exist to avoid duplicates
         existing_alerts = {}
         try:
-            existing_docs = FirebaseService.db.collection('alerts').where('active', '==', True).stream()
+            existing_docs = FirebaseService.db.collection('alerts').where(
+                filter=FieldFilter('active', '==', True)
+            ).stream()
             for doc in existing_docs:
                 alert_data = doc.to_dict()
                 alert_type = alert_data.get('type')
@@ -1078,19 +1175,8 @@ def analyze_fairness(data: dict):
                 "error": "ML Sentinel not initialized. Please run setup_ml_models.py first"
             }
         
-        # Get CVs from Firebase AND from sample_cvs folder
+        # Get CVs from Firestore only (user submissions)
         cvs = FirebaseService.get_all_cvs()
-        cv_files = FirebaseService.get_cvs_from_files()
-        
-        print(f"\n📊 Loading CVs for Analysis:")
-        print(f"  - Firestore CVs: {len(cvs)}")
-        print(f"  - File CVs: {len(cv_files)}")
-        
-        # Use ONLY file CVs (sample_cvs folder) to avoid duplicates and confusion
-        # Firestore CVs are legacy sample data that may conflict with file-based system
-        cvs = cv_files
-        
-        print(f"  - Using file CVs only: {len(cvs)}\\n")
         
         if not cvs or len(cvs) < 2:
             return {
@@ -1260,6 +1346,346 @@ def analyze_fairness(data: dict):
             "score": 0.0,
             "candidates_analyzed": []
         }
+
+# User Authentication and Application APIs
+@app.post("/api/auth/google")
+async def google_auth(data: dict):
+    try:
+        import jwt
+        import requests
+        
+        credential = data.get('credential')
+        
+        # Verify Google JWT token
+        try:
+            # Decode JWT without verification for demo (in production, verify signature)
+            import base64
+            import json
+            
+            # Split JWT and decode payload
+            parts = credential.split('.')
+            payload = parts[1]
+            # Add padding if needed
+            payload += '=' * (4 - len(payload) % 4)
+            decoded = base64.b64decode(payload)
+            user_info = json.loads(decoded)
+            
+            user_data = {
+                'id': user_info.get('sub'),
+                'email': user_info.get('email'),
+                'name': user_info.get('name'),
+                'picture': user_info.get('picture')
+            }
+        except Exception as e:
+            print(f"Token decode error: {e}")
+            # Fallback user data
+            user_data = {
+                'id': 'user123',
+                'email': 'user@example.com',
+                'name': 'Demo User',
+                'picture': 'https://via.placeholder.com/40'
+            }
+        
+        # Create user in database
+        user_id = f"USER{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        FirebaseService.db.collection('users').document(user_id).set({
+            'userId': user_id,
+            'email': user_data['email'],
+            'name': user_data['name'],
+            'picture': user_data['picture'],
+            'createdAt': datetime.now(),
+            'role': 'candidate'
+        })
+        
+        # Generate token
+        token = f"token_{user_id}"
+        
+        return {
+            'success': True,
+            'user': user_data,
+            'token': token
+        }
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+@app.post("/api/user/apply")
+async def user_apply(
+    file: UploadFile = File(...),
+    jobTitle: str = Form(...),
+    userId: Optional[str] = Form(None),
+    name: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    phone: Optional[str] = Form(None),
+    age: Optional[int] = Form(None),
+    gender: Optional[str] = Form(None),
+    experience: Optional[int] = Form(None),
+    skills: Optional[str] = Form(None),
+    education: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
+    currentRole: Optional[str] = Form(None),
+    expectedSalary: Optional[str] = Form(None),
+    authorization: str = None
+):
+    try:
+        # Extract user from token (simplified)
+        user_id = userId or "USER123"  # In production, decode from JWT
+        
+        # Generate application ID
+        app_id = f"APP{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        # Parse CV file
+        contents = await file.read()
+        extracted_text = ""
+        
+        if file.filename.lower().endswith('.txt'):
+            extracted_text = contents.decode('utf-8')
+        else:
+            extracted_text = "File content extracted"
+        
+        # Save application
+        app_data = {
+            'applicationId': app_id,
+            'userId': user_id,
+            'candidateId': f"CV{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
+            'jobTitle': jobTitle,
+            'fileName': file.filename,
+            'extractedText': extracted_text[:1000],
+            'status': 'pending',
+            'submittedAt': datetime.now()
+        }
+        
+        FirebaseService.db.collection('applications').document(app_id).set(app_data)
+
+        # Also persist candidate CV so HR dashboard/admin analysis can see user uploads.
+        candidate_id = app_data['candidateId']
+        skills_list = [s.strip() for s in (skills or "").split(",") if s.strip()]
+        cv_data = {
+            "candidateId": candidate_id,
+            "name": name or (email.split("@")[0] if email else "Unknown Candidate"),
+            "email": email or "",
+            "phone": phone or "",
+            "age": age if age is not None else 0,
+            "gender": gender or "Not specified",
+            "experience": experience if experience is not None else 0,
+            "skills": skills_list,
+            "education": education or "",
+            "location": location or "",
+            "currentRole": currentRole or jobTitle or "Position not specified",
+            "expectedSalary": expectedSalary or "",
+            "jobTitle": jobTitle,
+            "fileName": file.filename,
+            "extractedText": extracted_text[:1000],
+            "status": "under_review",
+            "uploadedAt": datetime.now(),
+            "analyzed": False,
+            "userId": user_id,
+            "source": "user_portal"
+        }
+        FirebaseService.db.collection('cvs').document(candidate_id).set(cv_data)
+        
+        # Trigger analysis
+        if ml_sentinel:
+            # Run basic analysis
+            ats_score = 75  # Mock score
+            bias_score = 0.15
+            
+            # Update application with results
+            FirebaseService.db.collection('applications').document(app_id).update({
+                'status': 'completed',
+                'atsScore': ats_score,
+                'biasScore': bias_score,
+                'feedback': 'Good match for the position',
+                'analyzedAt': datetime.now()
+            })
+        
+        return {'success': True, 'applicationId': app_id, 'candidateId': candidate_id}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+@app.get("/api/user/applications")
+def get_user_applications(userId: Optional[str] = None, authorization: str = None):
+    try:
+        user_id = userId or "USER123"
+
+        # Source of truth: CV collection (analysis statuses are updated here).
+        cv_docs = list(
+            FirebaseService.db.collection('cvs')
+            .where(filter=FieldFilter('userId', '==', user_id))
+            .order_by('uploadedAt', direction='DESCENDING')
+            .stream()
+        )
+
+        applications = []
+        for doc in cv_docs:
+            cv_data = doc.to_dict() or {}
+            uploaded_at = cv_data.get('uploadedAt')
+            applications.append({
+                'candidateId': cv_data.get('candidateId', doc.id),
+                'jobTitle': cv_data.get('jobTitle') or cv_data.get('currentRole') or 'Applied Position',
+                'fileName': cv_data.get('fileName', ''),
+                'status': cv_data.get('status', 'under_review'),
+                'uploadedAt': uploaded_at.isoformat() if hasattr(uploaded_at, 'isoformat') else '',
+                'atsScore': cv_data.get('atsScore') or cv_data.get('ats_score'),
+                'rescueReason': cv_data.get('rescueReason') or cv_data.get('rescue_reason'),
+                'suggestedPosition': cv_data.get('suggestedPosition') or cv_data.get('bestJobFamily')
+            })
+
+        return {'applications': applications}
+    except Exception as e:
+        return {'applications': [], 'error': str(e)}
+
+@app.post("/api/manual-save-candidate")
+def manual_save_candidate(data: dict):
+    """Manual recruiter override to move a candidate forward."""
+    try:
+        candidate_id = (data.get('candidateId') or data.get('candidate_id') or '').strip()
+        doc_id = (data.get('docId') or data.get('doc_id') or '').strip()
+        name = (data.get('name') or '').strip()
+        email = (data.get('email') or '').strip()
+        file_name = (data.get('fileName') or '').strip()
+        user_id = (data.get('userId') or '').strip()
+        reviewer = (data.get('reviewer') or 'hr_admin').strip()
+        note = (data.get('note') or 'Manually moved forward by reviewer').strip()
+
+        if not candidate_id and not doc_id and not name and not email:
+            return {"success": False, "error": "At least one identifier is required (candidateId/docId/name/email)"}
+
+        cv_ref = None
+        cv_doc = None
+
+        # 1) Direct by Firestore doc id
+        if doc_id:
+            possible_ref = FirebaseService.db.collection('cvs').document(doc_id)
+            possible_doc = possible_ref.get()
+            if possible_doc.exists:
+                cv_ref = possible_ref
+                cv_doc = possible_doc
+
+        # 2) Direct by candidateId as doc id
+        if cv_doc is None and candidate_id:
+            possible_ref = FirebaseService.db.collection('cvs').document(candidate_id)
+            possible_doc = possible_ref.get()
+            if possible_doc.exists:
+                cv_ref = possible_ref
+                cv_doc = possible_doc
+
+        # 3) By candidateId field
+        if cv_doc is None and candidate_id:
+            matches = list(
+                FirebaseService.db.collection('cvs')
+                .where(filter=FieldFilter('candidateId', '==', candidate_id))
+                .limit(1)
+                .stream()
+            )
+            if matches:
+                cv_ref = matches[0].reference
+                cv_doc = matches[0]
+
+        # 4) By userId + fileName
+        if cv_doc is None and user_id and file_name:
+            matches = list(
+                FirebaseService.db.collection('cvs')
+                .where(filter=FieldFilter('userId', '==', user_id))
+                .where(filter=FieldFilter('fileName', '==', file_name))
+                .limit(1)
+                .stream()
+            )
+            if matches:
+                cv_ref = matches[0].reference
+                cv_doc = matches[0]
+
+        # 5) By email
+        if cv_doc is None and email:
+            try:
+                matches = list(
+                    FirebaseService.db.collection('cvs')
+                    .where(filter=FieldFilter('email', '==', email))
+                    .limit(5)
+                    .stream()
+                )
+                if matches:
+                    # Prefer most recently uploaded doc without requiring an index.
+                    matches.sort(
+                        key=lambda d: (d.to_dict() or {}).get('uploadedAt') or datetime.min,
+                        reverse=True
+                    )
+                    cv_ref = matches[0].reference
+                    cv_doc = matches[0]
+            except Exception as email_lookup_error:
+                print(f"Warning: email fallback lookup failed: {email_lookup_error}")
+
+        # 6) By name as last fallback
+        if cv_doc is None and name:
+            try:
+                matches = list(
+                    FirebaseService.db.collection('cvs')
+                    .where(filter=FieldFilter('name', '==', name))
+                    .limit(5)
+                    .stream()
+                )
+                if matches:
+                    matches.sort(
+                        key=lambda d: (d.to_dict() or {}).get('uploadedAt') or datetime.min,
+                        reverse=True
+                    )
+                    cv_ref = matches[0].reference
+                    cv_doc = matches[0]
+            except Exception as name_lookup_error:
+                print(f"Warning: name fallback lookup failed: {name_lookup_error}")
+
+        if cv_doc is None:
+            return {"success": False, "error": f"Candidate not found (candidateId={candidate_id}, docId={doc_id})"}
+
+        cv_data = cv_doc.to_dict() or {}
+        previous_status = cv_data.get('status', 'unknown')
+
+        update_payload = {
+            'status': 'shortlisted',
+            'analyzed': True,
+            'manual_saved': True,
+            'manual_save_note': note,
+            'manual_saved_by': reviewer,
+            'manual_saved_at': datetime.now(),
+            'review_decision': 'give_chance'
+        }
+        cv_ref.set(update_payload, merge=True)
+
+        # Keep legacy applications collection in sync when possible.
+        try:
+            app_updates = {
+                'status': 'shortlisted',
+                'manual_saved': True,
+                'manual_save_note': note,
+                'manual_saved_by': reviewer,
+                'manual_saved_at': datetime.now()
+            }
+            app_matches = list(
+                FirebaseService.db.collection('applications')
+                .where(filter=FieldFilter('candidateId', '==', cv_data.get('candidateId', candidate_id)))
+                .stream()
+            )
+            if not app_matches and cv_data.get('userId'):
+                app_matches = list(
+                    FirebaseService.db.collection('applications')
+                    .where(filter=FieldFilter('userId', '==', cv_data.get('userId')))
+                    .where(filter=FieldFilter('fileName', '==', cv_data.get('fileName', '')))
+                    .limit(1)
+                    .stream()
+                )
+            for app_doc in app_matches:
+                app_doc.reference.set(app_updates, merge=True)
+        except Exception as sync_error:
+            print(f"Warning: Could not sync manual save to applications: {sync_error}")
+
+        return {
+            "success": True,
+            "candidateId": cv_data.get('candidateId', candidate_id),
+            "previousStatus": previous_status,
+            "newStatus": "shortlisted",
+            "message": "Candidate manually moved forward"
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 @app.websocket("/api/v1/ws")
 async def websocket_endpoint(websocket: WebSocket):

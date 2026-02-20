@@ -27,6 +27,7 @@ ENV/
 
 # Firebase
 service-account-key.json
+client_secret_*.json
 
 # Node.js
 node_modules/
@@ -54,3 +55,6 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log

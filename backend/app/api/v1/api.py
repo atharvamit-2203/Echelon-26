@@ -2,7 +2,7 @@
 API Router - Version 1
 """
 from fastapi import APIRouter
-from app.api.v1.endpoints import cvs, analysis, reports, jobs, upload, websocket, seed, bias
+from app.api.v1.endpoints import cvs, analysis, reports, jobs, upload, websocket, seed, bias, user, reference_cvs
 
 api_router = APIRouter()
 
@@ -15,4 +15,6 @@ api_router.include_router(upload.router)
 api_router.include_router(websocket.router)
 api_router.include_router(seed.router)
 api_router.include_router(bias.router)
+api_router.include_router(user.router)
+api_router.include_router(reference_cvs.router)
 

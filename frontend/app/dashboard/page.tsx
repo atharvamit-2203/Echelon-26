@@ -7,7 +7,6 @@ import BatchAnalysisPanel from '../../components/BatchAnalysisPanel';
 import RecruiterUploadPanel from '../../components/RecruiterUploadPanel';
 import ComprehensiveBiasAnalysis from '../../components/ComprehensiveBiasAnalysis';
 import Navbar from '../../components/Navbar';
-import ProtectedRoute from '../../components/ProtectedRoute';
 import Notification from '../../components/Notification';
 
 const Dashboard = () => {
@@ -50,12 +49,19 @@ const Dashboard = () => {
   };
 
   const startAnalysis = async () => {
-    // Start analysis and redirect to analysis page
+    // Start backend batch analysis and redirect to analytics progress view.
     setAnalyzing(true);
     setShowNotification(false);
 
-    // Redirect to analysis page immediately so user can see the progress
-    router.push('/analysis');
+    try {
+      await fetch('http://localhost:8000/api/start-batch-analysis', {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('Failed to start backend batch analysis:', error);
+    } finally {
+      router.push('/analytics?analyzing=true');
+    }
   };
 
   const fetchCVs = async () => {
@@ -121,9 +127,8 @@ const Dashboard = () => {
   };
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-black text-gray-100">
-        <Navbar />
+    <div className="min-h-screen bg-black text-gray-100">
+      <Navbar />
         {showNotification && (
           <Notification
             message={notificationData.message}
@@ -376,7 +381,6 @@ const Dashboard = () => {
 
         </div>
       </div>
-    </ProtectedRoute>
   );
 }
 

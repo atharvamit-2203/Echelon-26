@@ -25,7 +25,7 @@ class CVService:
             cv_dict = cv_data.model_dump()
             cv_dict.update({
                 "candidateId": candidate_id,
-                "status": CVStatus.UNDER_REVIEW,
+                "status": CVStatus.PENDING,
                 "uploadedAt": datetime.now(),
                 "analyzed": False
             })
@@ -141,3 +141,13 @@ class CVService:
         except Exception as e:
             logger.error(f"Error fetching statistics: {str(e)}")
             raise BadRequestException(f"Failed to fetch statistics: {str(e)}")
+    
+    async def get_user_applications(self, user_id: str) -> List[CVResponse]:
+        """Get all applications for a specific user"""
+        try:
+            cvs = self.firebase.get_all_cvs()
+            user_cvs = [cv for cv in cvs if cv.get('userId') == user_id]
+            return [CVResponse(**cv) for cv in user_cvs]
+        except Exception as e:
+            logger.error(f"Error fetching user applications: {str(e)}")
+            raise BadRequestException(f"Failed to fetch user applications: {str(e)}")

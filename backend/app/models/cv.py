@@ -11,10 +11,12 @@ class CVStatus(str, Enum):
     """CV status enumeration"""
     PENDING = "pending"
     UNDER_REVIEW = "under_review"
+    ANALYZING = "analyzing"
     REJECTED = "rejected"
     SHORTLISTED = "shortlisted"
-    IMMEDIATE_INTERVIEW = "immediate_interview"
+    SELECTED = "selected"
     RESCUED = "rescued"
+    IMMEDIATE_INTERVIEW = "immediate_interview"
 
 
 class CVBase(BaseModel):
@@ -56,6 +58,10 @@ class CVResponse(CVBase):
     atsScore: Optional[float] = None
     matchRate: Optional[float] = None
     semanticScore: Optional[float] = None
+    jobTitle: Optional[str] = None
+    fileName: Optional[str] = None
+    userId: Optional[str] = None
+    rescueReason: Optional[str] = None
     
     class Config:
         from_attributes = True

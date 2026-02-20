@@ -5,12 +5,16 @@ import { useRouter } from 'next/navigation';
 import { FileText, CheckCircle, AlertTriangle, TrendingUp, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, Target, Sparkles, Activity } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Navbar from '@/components/Navbar';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import Notification from '@/components/Notification';
 
 interface CandidateData {
-  id: number;
+  id: string | number;
+  docId?: string;
+  candidateId?: string;
   name: string;
+  email?: string;
+  fileName?: string;
+  userId?: string;
   atsScore: number;
   semanticScore: number;
   codingScore: number;
@@ -22,6 +26,39 @@ interface CandidateData {
   isRescued: boolean;
   driftScore: number;
 }
+
+interface AnalysisHistoryEntry {
+  id: string;
+  createdAt: string;
+  summary: {
+    total: number;
+    accepted: number;
+    rescued: number;
+    rejected: number;
+    avgMatch: number;
+  };
+  resumes: any[];
+  candidateAnalytics: CandidateData[];
+  hash: string;
+}
+
+const ANALYTICS_HISTORY_KEY = 'fairhire_analytics_history';
+const MAX_HISTORY_ITEMS = 12;
+const ACCEPTED_STATUSES = new Set(['accepted', 'selected', 'shortlisted', 'immediate_interview']);
+const REJECTED_STATUSES = new Set(['rejected']);
+const RESCUED_STATUSES = new Set(['rescued']);
+const UNDER_REVIEW_STATUSES = new Set(['pending', 'under_review', 'analyzing']);
+
+const normalizeStatus = (rawStatus: string | undefined, atsScore: number): 'accepted' | 'rejected' | 'rescued' | 'under_review' => {
+  const status = (rawStatus || '').toLowerCase().trim();
+
+  if (UNDER_REVIEW_STATUSES.has(status)) return 'under_review';
+  if (RESCUED_STATUSES.has(status)) return 'rescued';
+  if (ACCEPTED_STATUSES.has(status)) return 'accepted';
+  if (REJECTED_STATUSES.has(status)) return 'rejected';
+
+  return atsScore >= 75 ? 'accepted' : 'rejected';
+};
 
 export default function Analytics() {
   const router = useRouter();
@@ -39,8 +76,67 @@ export default function Analytics() {
   const [notificationData, setNotificationData] = useState<{ message: string; count: number }>({ message: '', count: 0 });
   const [analysisProgress, setAnalysisProgress] = useState<string>('');
   const [analysisStep, setAnalysisStep] = useState<number>(0);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryEntry[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string>('');
+  const [savingCandidates, setSavingCandidates] = useState<Record<string, boolean>>({});
+
+  const loadHistoryFromStorage = (): AnalysisHistoryEntry[] => {
+    try {
+      const raw = localStorage.getItem(ANALYTICS_HISTORY_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveAnalysisSnapshot = (resumesData: any[], analyticsData: CandidateData[]) => {
+    if (!resumesData.length || !analyticsData.length) return;
+
+    const signature = analyticsData
+      .map((c) => `${c.id}|${c.status}|${c.atsScore}|${c.semanticScore}|${c.isRescued}`)
+      .sort()
+      .join('::');
+
+    const currentHistory = loadHistoryFromStorage();
+    if (currentHistory[0]?.hash === signature) return;
+
+    const accepted = analyticsData.filter((c) => c.status === 'accepted').length;
+    const rescued = analyticsData.filter((c) => c.isRescued).length;
+    const rejected = analyticsData.filter((c) => c.status === 'rejected' && !c.isRescued).length;
+    const avgMatch = resumesData.length > 0
+      ? Math.round(resumesData.reduce((sum, r) => sum + (r.matchPercent || 0), 0) / resumesData.length)
+      : 0;
+
+    const entry: AnalysisHistoryEntry = {
+      id: `run-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      summary: {
+        total: resumesData.length,
+        accepted,
+        rescued,
+        rejected,
+        avgMatch
+      },
+      resumes: resumesData,
+      candidateAnalytics: analyticsData,
+      hash: signature
+    };
+
+    const updatedHistory = [entry, ...currentHistory].slice(0, MAX_HISTORY_ITEMS);
+    localStorage.setItem(ANALYTICS_HISTORY_KEY, JSON.stringify(updatedHistory));
+    setAnalysisHistory(updatedHistory);
+    setSelectedHistoryId(entry.id);
+  };
 
   useEffect(() => {
+    const history = loadHistoryFromStorage();
+    setAnalysisHistory(history);
+    if (history.length > 0) {
+      setSelectedHistoryId(history[0].id);
+    }
+
     fetchCVData();
     fetchAnalysisResults();
     // Set up polling interval to check for new results
@@ -98,13 +194,20 @@ export default function Analytics() {
     // ONLY include CVs that have been analyzed (have actual scores or status)
     const analyzedCVs = cvs.filter(cv => 
       cv.atsScore || cv.ats_score || cv.match_rate || cv.analyzed === true || 
-      ['analyzed', 'immediate_interview', 'shortlisted', 'rescued', 'rejected'].includes(cv.status)
+      ['pending', 'under_review', 'analyzing', 'analyzed', 'immediate_interview', 'shortlisted', 'selected', 'rescued', 'rejected'].includes(cv.status)
     );
     
     if (analyzedCVs.length === 0) {
       console.log('No analyzed CVs found - all CVs are pending analysis');
-      setCandidateAnalytics([]);
-      setResumes([]);
+      const savedHistory = loadHistoryFromStorage();
+      if (savedHistory.length > 0) {
+        const latest = savedHistory[0];
+        setResumes(latest.resumes || []);
+        setCandidateAnalytics(latest.candidateAnalytics || []);
+      } else {
+        setCandidateAnalytics([]);
+        setResumes([]);
+      }
       return;
     }
     
@@ -124,7 +227,7 @@ export default function Analytics() {
       const atsScore = cv.atsScore || cv.ats_score || (cv.match_rate ? cv.match_rate * 100 : 0);
       
       return {
-        id: cv.candidateId || cv.candidate_id || index + 1,
+        id: cv.id || cv.candidateId || cv.candidate_id || index + 1,
         name: candidateName,
         position: position,
         matchPercent: Math.round(atsScore),
@@ -135,7 +238,7 @@ export default function Analytics() {
           age: cv.age > 45 ? 'Potential bias detected' : 'None',
           gender: 'None'
         },
-        passed: atsScore >= 75 || cv.status === 'shortlisted' || cv.status === 'immediate_interview',
+        passed: atsScore >= 75 || ['shortlisted', 'immediate_interview', 'selected', 'rescued'].includes(cv.status),
         bestJobFamily: bestJobFamily,
         jobMatchScore: jobMatchScore,
         jobCategory: jobCategory,
@@ -154,17 +257,22 @@ export default function Analytics() {
         : atsScore; // Use ATS score if no semantic score
       const codingScore = cv.coding_score || cv.actualPotential || semanticScore;
       const experience = cv.experience || 0;
-      const status = cv.status || (atsScore >= 75 ? 'accepted' : 'rejected');
-      const isRescued = cv.status === 'rescued' || cv.status === 'immediate_interview' || (cv.semantic_analysis?.overall_match_score > 0.65 && atsScore < 75);
+      const normalizedStatus = normalizeStatus(cv.status, atsScore);
+      const isRescued = normalizedStatus === 'rescued' || Boolean(cv.rescue_reason);
       
       return {
-        id: cv.candidateId || cv.candidate_id || `cv-${index}`,
+        id: cv.id || cv.candidateId || cv.candidate_id || `cv-${index}`,
+        docId: cv.id || undefined,
+        candidateId: cv.candidateId || cv.candidate_id || undefined,
         name: candidateName,
+        email: cv.email || undefined,
+        fileName: cv.fileName || undefined,
+        userId: cv.userId || undefined,
         atsScore: Math.round(atsScore),
         semanticScore: Math.round(semanticScore),
         codingScore: Math.round(codingScore),
         actualPotential: Math.round((semanticScore + codingScore) / 2),
-        status: status,
+        status: normalizedStatus,
         reason: cv.rejection_reason || cv.rejectionReason || cv.rescue_reason || (atsScore < 75 ? 'Low keyword match' : 'Strong match'),
         yearsExp: experience,
         education: cv.education || 'Not specified',
@@ -175,6 +283,7 @@ export default function Analytics() {
     
     console.log(`Created ${analyticsData.length} real analytics data points`);
     setCandidateAnalytics(analyticsData);
+    saveAnalysisSnapshot(transformed, analyticsData);
   };
 
   const transformAlertsToAnalytics = (alerts: any[]) => {
@@ -329,6 +438,17 @@ export default function Analytics() {
   };
 
   // Candidate analytics data is now managed by state
+  const acceptedCandidates = candidateAnalytics.filter((c) => c.status === 'accepted');
+  const rescuedCandidates = candidateAnalytics.filter((c) => c.isRescued || c.status === 'rescued');
+  const rejectedCandidates = candidateAnalytics.filter((c) => c.status === 'rejected' && !c.isRescued);
+  const acceptedDisplayCandidates = candidateAnalytics.filter((c) => c.status === 'accepted' || c.status === 'rescued');
+  const reviewCandidates = candidateAnalytics.filter((c) => c.status === 'under_review');
+  const rejectionReasonGroups = Array.from(
+    new Set(rejectedCandidates.map((c) => c.reason || 'Unknown reason'))
+  );
+
+  const formatReasonLabel = (reason: string, maxLen: number = 38) =>
+    reason.length > maxLen ? `${reason.slice(0, maxLen)}...` : reason;
 
   // Drift timeline data
   const driftTimeline = [
@@ -359,12 +479,78 @@ export default function Analytics() {
     router.push('/dashboard');
   };
 
+  const handleGiveChance = async (candidate: CandidateData) => {
+    const actionKey = String(candidate.id);
+    const resolvedCandidateId =
+      candidate.candidateId ||
+      (String(candidate.id).startsWith('CV') ? String(candidate.id) : '');
+    const resolvedDocId = candidate.docId || (String(candidate.id).startsWith('cv-') ? '' : String(candidate.id));
+
+    setSavingCandidates((prev) => ({ ...prev, [actionKey]: true }));
+    try {
+      const response = await fetch('http://localhost:8000/api/manual-save-candidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidateId: resolvedCandidateId,
+          docId: resolvedDocId,
+          name: candidate.name,
+          email: candidate.email,
+          fileName: candidate.fileName,
+          userId: candidate.userId,
+          reviewer: 'hr_admin',
+          note: 'Manual shortlist from analytics'
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error || `Could not save candidate (HTTP ${response.status})`);
+      }
+
+      setCandidateAnalytics((prev) =>
+        prev.map((c) =>
+          String(c.id) === actionKey
+            ? {
+                ...c,
+                status: 'accepted',
+                reason: 'Manually shortlisted by reviewer',
+                isRescued: false
+              }
+            : c
+        )
+      );
+    } catch (error) {
+      console.error('Manual save failed:', error);
+      const message = error instanceof Error ? error.message : 'Failed to save candidate. Please try again.';
+      alert(message);
+    } finally {
+      setSavingCandidates((prev) => ({ ...prev, [actionKey]: false }));
+    }
+  };
+
+  const loadHistoryRun = () => {
+    const selected = analysisHistory.find((item) => item.id === selectedHistoryId);
+    if (!selected) return;
+    setResumes(selected.resumes || []);
+    setCandidateAnalytics(selected.candidateAnalytics || []);
+    showHistoryToast(selected);
+  };
+
+  const showHistoryToast = (entry: AnalysisHistoryEntry) => {
+    setNotificationData({
+      message: `Loaded analysis from ${new Date(entry.createdAt).toLocaleString()}`,
+      count: entry.summary.total
+    });
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 4000);
+  };
+
   if (showATSAnalysis && selectedResume !== null) {
     const resume = resumes[selectedResume];
     
     return (
-      <ProtectedRoute>
-        <div className="min-h-screen bg-black text-gray-100">
+      <div className="min-h-screen bg-black text-gray-100">
           <Navbar />
           <div className="px-6 py-6 space-y-6">
             {/* Header */}
@@ -486,13 +672,11 @@ export default function Analytics() {
           </div>
         </div>
         </div>
-      </ProtectedRoute>
     );
   }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-black text-gray-100">
+    <div className="min-h-screen bg-black text-gray-100">
         <Navbar />
         {showNotification && (
           <Notification
@@ -509,6 +693,27 @@ export default function Analytics() {
               <div>
                 <h1 className="text-3xl font-bold text-white">📈 ATS Analytics</h1>
                 <p className="text-gray-400 mt-1">Review resume screening results and bias detection</p>
+                {analysisHistory.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <select
+                      value={selectedHistoryId}
+                      onChange={(e) => setSelectedHistoryId(e.target.value)}
+                      className="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white"
+                    >
+                      {analysisHistory.map((entry) => (
+                        <option key={entry.id} value={entry.id}>
+                          {new Date(entry.createdAt).toLocaleString()} | {entry.summary.total} CVs
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={loadHistoryRun}
+                      className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium"
+                    >
+                      Load Previous Analysis
+                    </button>
+                  </div>
+                )}
                 {analyzing ? (
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center gap-2 text-sm text-amber-400">
@@ -732,15 +937,15 @@ export default function Analytics() {
             {chartView === 'scatter' && (
               <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
                 <h3 className="text-2xl font-bold mb-6 text-white">ATS Score vs Actual Potential</h3>
-                <ResponsiveContainer width="100%" height={500}>
-                  <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <ResponsiveContainer width="100%" height={520}>
+                  <ScatterChart margin={{ top: 56, right: 20, bottom: 44, left: 16 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis 
                       type="number" 
                       dataKey="atsScore" 
                       name="ATS Score"
                       label={{ value: 'ATS Score (Keyword Match)', position: 'bottom', offset: 0, fill: '#9ca3af' }}
-                      domain={[50, 100]}
+                      domain={[0, 100]}
                       stroke="#6b7280"
                       tick={{ fill: '#9ca3af' }}
                     />
@@ -749,7 +954,7 @@ export default function Analytics() {
                       dataKey="actualPotential" 
                       name="Actual Potential"
                       label={{ value: 'Actual Potential', angle: -90, position: 'insideLeft', fill: '#9ca3af' }}
-                      domain={[70, 95]}
+                      domain={[0, 100]}
                       stroke="#6b7280"
                       tick={{ fill: '#9ca3af' }}
                     />
@@ -780,27 +985,32 @@ export default function Analytics() {
                         return null;
                       }}
                     />
-                    <Legend wrapperStyle={{ color: '#9ca3af' }} />
+                    <Legend
+                      verticalAlign="top"
+                      align="center"
+                      height={44}
+                      wrapperStyle={{ color: '#9ca3af', paddingBottom: '8px' }}
+                    />
                     <Scatter
                       name="Accepted by ATS"
-                      data={candidateAnalytics.filter(c => c.status === 'accepted')}
+                      data={acceptedCandidates}
                       fill={COLORS.accepted}
                     />
                     <Scatter
                       name="Should Be Rescued"
-                      data={candidateAnalytics.filter(c => c.isRescued)}
+                      data={rescuedCandidates}
                       fill={COLORS.rescued}
                     />
                     <Scatter
                       name="Rejected by ATS"
-                      data={candidateAnalytics.filter(c => c.status === 'rejected' && !c.isRescued)}
+                      data={rejectedCandidates}
                       fill={COLORS.rejected}
                     />
                   </ScatterChart>
                 </ResponsiveContainer>
                 <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
                   <p className="text-sm text-blue-200">
-                    💡 <strong>Insight:</strong> {candidateAnalytics.filter(c => c.isRescued).length} candidates were rejected by ATS but have high potential scores. These represent valuable talent that might be lost without semantic analysis.
+                    💡 <strong>Insight:</strong> {rescuedCandidates.length} candidates were rejected by ATS but have high potential scores. These represent valuable talent that might be lost without semantic analysis.
                   </p>
                 </div>
               </div>
@@ -884,17 +1094,27 @@ export default function Analytics() {
                           color: '#e5e7eb'
                         }}
                       />
-                      <Legend wrapperStyle={{ color: '#9ca3af' }} />
-                      {Array.from(new Set(candidateAnalytics.filter(c => c.status === 'rejected').map(c => c.reason))).map((reason, idx) => (
+                      {rejectionReasonGroups.map((reason, idx) => (
                         <Scatter
                           key={reason}
-                          name={reason}
-                          data={candidateAnalytics.filter(c => c.reason === reason)}
+                          name={`Reason ${idx + 1}`}
+                          data={rejectedCandidates.filter(c => c.reason === reason)}
                           fill={PIE_COLORS[idx % PIE_COLORS.length]}
                         />
                       ))}
                     </ScatterChart>
                   </ResponsiveContainer>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {rejectionReasonGroups.map((reason, idx) => (
+                      <div
+                        key={`reason-chip-${idx}`}
+                        className="text-xs border border-gray-700 rounded-full px-3 py-1 bg-gray-800 text-gray-300"
+                      >
+                        <span style={{ color: PIE_COLORS[idx % PIE_COLORS.length] }}>●</span>{' '}
+                        {`Reason ${idx + 1}: ${formatReasonLabel(reason)}`}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -905,7 +1125,7 @@ export default function Analytics() {
                       <PieChart>
                         <Pie
                           data={Array.from(
-                            candidateAnalytics.filter(c => c.status === 'rejected')
+                            rejectedCandidates
                               .reduce((acc, c) => {
                                 acc.set(c.reason, (acc.get(c.reason) || 0) + 1);
                                 return acc;
@@ -919,7 +1139,7 @@ export default function Analytics() {
                           fill="#8884d8"
                           dataKey="value"
                         >
-                          {Array.from(new Set(candidateAnalytics.filter(c => c.status === 'rejected').map(c => c.reason))).map((_, index) => (
+                          {rejectionReasonGroups.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                           ))}
                         </Pie>
@@ -942,15 +1162,15 @@ export default function Analytics() {
                       <BarChart data={[
                         { 
                           group: 'Accepted', 
-                          score: candidateAnalytics.filter(c => c.status === 'accepted').reduce((sum, c) => sum + c.codingScore, 0) / candidateAnalytics.filter(c => c.status === 'accepted').length 
+                          score: acceptedCandidates.reduce((sum, c) => sum + c.codingScore, 0) / (acceptedCandidates.length || 1)
                         },
                         { 
                           group: 'Rescued', 
-                          score: candidateAnalytics.filter(c => c.isRescued).reduce((sum, c) => sum + c.codingScore, 0) / candidateAnalytics.filter(c => c.isRescued).length 
+                          score: rescuedCandidates.reduce((sum, c) => sum + c.codingScore, 0) / (rescuedCandidates.length || 1)
                         },
                         { 
                           group: 'Other Rejected', 
-                          score: candidateAnalytics.filter(c => c.status === 'rejected' && !c.isRescued).reduce((sum, c) => sum + c.codingScore, 0) / (candidateAnalytics.filter(c => c.status === 'rejected' && !c.isRescued).length || 1)
+                          score: rejectedCandidates.reduce((sum, c) => sum + c.codingScore, 0) / (rejectedCandidates.length || 1)
                         }
                       ]}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -985,7 +1205,7 @@ export default function Analytics() {
                 <div>
                   <h4 className="font-semibold text-xl mb-4 text-white">❌ Rejected Candidates</h4>
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                    {candidateAnalytics.filter(c => c.status === 'rejected').sort((a, b) => b.actualPotential - a.actualPotential).map(c => (
+                    {[...rejectedCandidates].sort((a, b) => b.actualPotential - a.actualPotential).map(c => (
                       <div 
                         key={c.id}
                         className={`p-4 rounded-xl border-2 transition-all hover:scale-[1.02] ${
@@ -1006,26 +1226,77 @@ export default function Analytics() {
                         <div className="text-xs text-gray-500 font-mono bg-gray-900/50 p-2 rounded">
                           ATS: {c.atsScore} | Sem: {c.semanticScore} | Code: {c.codingScore} | {c.yearsExp}y exp
                         </div>
+                        <div className="mt-3">
+                          <button
+                            onClick={() => handleGiveChance(c)}
+                            disabled={Boolean(savingCandidates[String(c.id)])}
+                            className="px-3 py-1.5 text-xs font-semibold rounded bg-green-600 hover:bg-green-700 text-white disabled:opacity-60"
+                          >
+                            {savingCandidates[String(c.id)] ? 'Saving...' : 'Give Chance'}
+                          </button>
+                        </div>
                       </div>
                     ))}
+                    {rejectedCandidates.length === 0 && (
+                      <div className="p-4 rounded-xl border border-gray-700 bg-gray-800/50 text-sm text-gray-400">
+                        No rejected candidates found
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <h4 className="font-semibold text-xl mb-4 text-white">✅ Accepted Candidates</h4>
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                    {candidateAnalytics.filter(c => c.status === 'accepted').sort((a, b) => b.actualPotential - a.actualPotential).map(c => (
+                    {[...acceptedDisplayCandidates].sort((a, b) => b.actualPotential - a.actualPotential).map(c => (
                       <div 
                         key={c.id}
                         className="p-4 rounded-xl border-2 bg-gradient-to-br from-green-900/30 to-emerald-800/20 border-green-500/50 transition-all hover:scale-[1.02]"
                       >
-                        <div className="font-semibold mb-2 text-white">{c.name}</div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="font-semibold text-white">{c.name}</div>
+                          {c.status === 'rescued' && (
+                            <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg">
+                              RESCUED
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-500 font-mono bg-gray-900/50 p-2 rounded">
                           ATS: {c.atsScore} | Sem: {c.semanticScore} | Code: {c.codingScore} | {c.yearsExp}y exp
                         </div>
                       </div>
                     ))}
+                    {acceptedDisplayCandidates.length === 0 && (
+                      <div className="p-4 rounded-xl border border-gray-700 bg-gray-800/50 text-sm text-gray-400">
+                        No accepted candidates found
+                      </div>
+                    )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {chartView === 'breakdown' && reviewCandidates.length > 0 && (
+              <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
+                <h4 className="font-semibold text-xl mb-4 text-white">🕒 Under Review Candidates</h4>
+                <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                  {[...reviewCandidates].sort((a, b) => b.atsScore - a.atsScore).map(c => (
+                    <div key={c.id} className="p-4 rounded-xl border border-blue-700/40 bg-blue-900/10">
+                      <div className="font-semibold mb-2 text-white">{c.name}</div>
+                      <div className="text-xs text-gray-400 font-mono">
+                        Status: under_review | ATS: {c.atsScore} | Sem: {c.semanticScore} | {c.yearsExp}y exp
+                      </div>
+                      <div className="mt-3">
+                        <button
+                          onClick={() => handleGiveChance(c)}
+                          disabled={Boolean(savingCandidates[String(c.id)])}
+                          className="px-3 py-1.5 text-xs font-semibold rounded bg-green-600 hover:bg-green-700 text-white disabled:opacity-60"
+                        >
+                          {savingCandidates[String(c.id)] ? 'Saving...' : 'Give Chance'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -1058,7 +1329,7 @@ export default function Analytics() {
                   Optimization Potential
                 </h3>
                 <p className="text-sm text-gray-300">
-                  By rescuing these candidates, you could increase your quality hire pool by {((candidateAnalytics.filter(c => c.isRescued).length / candidateAnalytics.filter(c => c.status === 'accepted').length) * 100).toFixed(0)}%.
+                  By rescuing these candidates, you could increase your quality hire pool by {acceptedCandidates.length > 0 ? ((rescuedCandidates.length / acceptedCandidates.length) * 100).toFixed(0) : '0'}%.
                 </p>
               </div>
             </div>
@@ -1083,6 +1354,5 @@ export default function Analytics() {
         }
       `}</style>
       </div>
-    </ProtectedRoute>
   )
 }
